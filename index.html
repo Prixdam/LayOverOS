@@ -1,88 +1,376 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Control de Vouchers</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LayOverOS | Control de Vouchers</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">V</span>
-      <span class="brand-name">Control de Vouchers</span>
+      <span class="brand-mark">L</span>
+      <span class="brand-name">LayOverOS</span>
     </div>
+
     <nav class="tabs">
-      <button class="tab-btn active" data-view="captura">Capturar</button>
-      <button class="tab-btn" data-view="registro">Registro</button>
+      <button class="tab-btn active" data-view="captura">
+        Capturar
+      </button>
+
+      <button class="tab-btn" data-view="registro">
+        Registro
+      </button>
     </nav>
   </header>
 
+
   <main>
-    <!-- VISTA: CAPTURA -->
+
+    <!-- ============================= -->
+    <!-- VISTA: CAPTURAR VOUCHER -->
+    <!-- ============================= -->
+
     <section id="view-captura" class="view active">
+
       <div class="capture-card">
+
         <label for="file-input" class="capture-drop">
+
           <div class="capture-icon">📷</div>
-          <p class="capture-text">Toca para tomar foto o subir el voucher</p>
-          <input id="file-input" type="file" accept="image/*" capture="environment" hidden />
+
+          <p class="capture-text">
+            Toca para tomar una foto o subir un voucher
+          </p>
+
+          <small>
+            LayOverOS analizará automáticamente la información
+          </small>
+
+          <input
+            id="file-input"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+          />
+
         </label>
-        <img id="preview-img" class="preview-img" hidden />
+
+        <img
+          id="preview-img"
+          class="preview-img"
+          hidden
+          alt="Vista previa del voucher"
+        />
+
       </div>
 
-      <div id="status-msg" class="status-msg" hidden></div>
 
-      <form id="voucher-form" class="voucher-form" hidden>
-        <h3>Confirma los datos extraídos</h3>
+      <!-- MENSAJE DE ESTADO -->
+
+      <div
+        id="status-msg"
+        class="status-msg"
+        hidden
+      ></div>
+
+
+      <!-- ============================= -->
+      <!-- FORMULARIO -->
+      <!-- ============================= -->
+
+      <form
+        id="voucher-form"
+        class="voucher-form"
+        hidden
+      >
+
+        <h3>Revisa la información del voucher</h3>
+
+        <p class="form-description">
+          La información fue extraída automáticamente. Corrige cualquier
+          dato antes de guardarlo.
+        </p>
+
+
         <div class="form-grid">
-          <label>Número de voucher
-            <input type="text" name="numero_voucher" />
+
+          <!-- IDENTIFICACIÓN -->
+
+          <label>
+            Número de voucher
+            <input
+              type="text"
+              name="numero_voucher"
+              placeholder="Ej. 8281385984"
+            />
           </label>
-          <label>Fecha del voucher
-            <input type="date" name="fecha_voucher" />
+
+
+          <label>
+            Aerolínea
+            <input
+              type="text"
+              name="aerolinea"
+              placeholder="Ej. Avianca"
+            />
           </label>
-          <label>Huésped
-            <input type="text" name="huesped" />
+
+
+          <!-- PASAJERO -->
+
+          <label>
+            Pasajero
+            <input
+              type="text"
+              name="huesped"
+              placeholder="Nombre del pasajero"
+            />
           </label>
-          <label>Habitación
-            <input type="text" name="habitacion" />
+
+
+          <label>
+            Vuelo
+            <input
+              type="text"
+              name="vuelo"
+              placeholder="Ej. AV8580"
+            />
           </label>
-          <label>Proveedor / Agencia
-            <input type="text" name="proveedor" />
+
+
+          <!-- FECHAS -->
+
+          <label>
+            Fecha del vuelo
+            <input
+              type="date"
+              name="fecha_vuelo"
+            />
           </label>
-          <label>Monto
-            <input type="number" step="0.01" name="monto" />
+
+
+          <label>
+            Fecha de emisión
+            <input
+              type="date"
+              name="fecha_emision"
+            />
           </label>
-          <label>Moneda
-            <input type="text" name="moneda" value="COP" />
+
+
+          <!-- HOTEL -->
+
+          <label>
+            Habitación
+            <input
+              type="text"
+              name="habitacion"
+              placeholder="Número de habitación"
+            />
           </label>
-          <label class="full">Observaciones
-            <textarea name="observaciones" rows="2"></textarea>
+
+
+          <label>
+            Servicio
+            <input
+              type="text"
+              name="servicio"
+              placeholder="Ej. Alojamiento, desayuno y WiFi"
+            />
           </label>
+
+
+          <!-- ESTADÍA -->
+
+          <label>
+            Días
+            <input
+              type="number"
+              name="dias"
+              min="0"
+              placeholder="Ej. 1"
+            />
+          </label>
+
+
+          <label>
+            Noches
+            <input
+              type="number"
+              name="noches"
+              min="0"
+              placeholder="Ej. 1"
+            />
+          </label>
+
+
+          <label>
+            PAX
+            <input
+              type="number"
+              name="pax"
+              min="1"
+              placeholder="Ej. 1"
+            />
+          </label>
+
+
+          <label>
+            Operado por
+            <input
+              type="text"
+              name="operado_por"
+              placeholder="Ej. Avianca"
+            />
+          </label>
+
+
+          <!-- VUELO -->
+
+          <label>
+            Cabina
+            <input
+              type="text"
+              name="cabina"
+              placeholder="Ej. Y"
+            />
+          </label>
+
+
+          <label>
+            Nivel de tarifa
+            <input
+              type="text"
+              name="fare_level"
+              placeholder="Ej. AV-LM1"
+            />
+          </label>
+
+
+          <!-- ESTADO -->
+
+          <label>
+            Estado
+            <select name="estado">
+
+              <option value="RECIBIDO">
+                Recibido
+              </option>
+
+              <option value="VALIDADO">
+                Validado
+              </option>
+
+              <option value="UTILIZADO">
+                Utilizado
+              </option>
+
+              <option value="COBRADO">
+                Cobrado
+              </option>
+
+            </select>
+          </label>
+
+
+          <!-- OBSERVACIONES -->
+
+          <label class="full">
+            Observaciones
+
+            <textarea
+              name="observaciones"
+              rows="3"
+              placeholder="Información adicional..."
+            ></textarea>
+
+          </label>
+
         </div>
+
+
+        <!-- BOTONES -->
+
         <div class="form-actions">
-          <button type="button" id="btn-cancel" class="btn btn-ghost">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar en registro</button>
+
+          <button
+            type="button"
+            id="btn-cancel"
+            class="btn btn-ghost"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+          >
+            Guardar voucher
+          </button>
+
         </div>
+
       </form>
+
     </section>
 
+
+
+    <!-- ============================= -->
     <!-- VISTA: REGISTRO -->
+    <!-- ============================= -->
+
     <section id="view-registro" class="view">
+
       <div class="registro-toolbar">
-        <input id="search-input" type="text" placeholder="Buscar por huésped, habitación o número..." />
-        <button id="btn-export" class="btn btn-primary">Exportar a Excel</button>
+
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Buscar por voucher, pasajero, vuelo, aerolínea..."
+        />
+
+        <button
+          id="btn-export"
+          class="btn btn-primary"
+        >
+          Exportar a Excel
+        </button>
+
       </div>
-      <div id="registro-list" class="registro-list">
-        <p class="empty-state">Cargando registros...</p>
+
+
+      <div
+        id="registro-list"
+        class="registro-list"
+      >
+
+        <p class="empty-state">
+          Cargando registros...
+        </p>
+
       </div>
+
     </section>
+
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" ></script>
+
+  <!-- ============================= -->
+  <!-- LIBRERÍAS -->
+  <!-- ============================= -->
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
   <script src="config.js"></script>
+
   <script src="app.js"></script>
+
 </body>
 </html>
