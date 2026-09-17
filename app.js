@@ -1,21 +1,48 @@
-const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+const supabase = window.supabase.createClient(
+  window.SUPABASE_URL,
+  window.SUPABASE_ANON_KEY
+);
 
-// ---------- Navegación entre pestañas ----------
-document.querySelectorAll(".tab-btn").forEach(btn => {
+// =====================================================
+// NAVEGACIÓN
+// =====================================================
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+
+    document
+      .querySelectorAll(".view")
+      .forEach((v) => v.classList.remove("active"));
+
     btn.classList.add("active");
-    document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
-    if (btn.dataset.view === "registro") cargarRegistro();
+
+    document
+      .getElementById(`view-${btn.dataset.view}`)
+      .classList.add("active");
+
+    if (btn.dataset.view === "registro") {
+      cargarRegistro();
+    }
   });
 });
 
-// ---------- Captura + OCR ----------
+
+// =====================================================
+// ELEMENTOS
+// =====================================================
+
 const fileInput = document.getElementById("file-input");
 const previewImg = document.getElementById("preview-img");
 const statusMsg = document.getElementById("status-msg");
 const voucherForm = document.getElementById("voucher-form");
+
+
+// =====================================================
+// MENSAJES
+// =====================================================
 
 function setStatus(text, type) {
   statusMsg.textContent = text;
@@ -23,140 +50,154 @@ function setStatus(text, type) {
   statusMsg.hidden = !text;
 }
 
+
+// =====================================================
+// CAPTURA + OCR
+// =====================================================
+
 fileInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
+
   if (!file) return;
 
-  const base64 = await fileToBase64(file);
-  previewImg.src = `data:${file.type};base64,${base64}`;
-  previewImg.hidden = false;
-  voucherForm.hidden = true;
-
-  setStatus("Leyendo el voucher con IA...", null);
-
   try {
+    const base64 = await fileToBase64(file);
+
+    previewImg.src = `data:${file.type};base64,${base64}`;
+    previewImg.hidden = false;
+
+    voucherForm.hidden = true;
+
+    setStatus("Leyendo el voucher con IA...", null);
+
     const res = await fetch("/api/ocr", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: base64, mediaType: file.type }),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        image: base64,
+        mediaType: file.type
+      })
     });
-    if (!res.ok) throw new Error("Fallo la extracción");
+
+    if (!res.ok) {
+      throw new Error("Falló la extracción del voucher");
+    }
+
     const data = await res.json();
 
-    voucherForm.numero_voucher.value = data.numero_voucher || "";
-    voucherForm.fecha_voucher.value = data.fecha_voucher || "";
-    voucherForm.huesped.value = data.huesped || "";
-    voucherForm.habitacion.value = data.habitacion || "";
-    voucherForm.proveedor.value = data.proveedor || "";
-    voucherForm.monto.value = data.monto || "";
-    voucherForm.moneda.value = data.moneda || "COP";
-    voucherForm.observaciones.value = data.observaciones || "";
+    console.log("Datos extraídos por IA:", data);
+
+    // ==========================================
+    // LLENAR FORMULARIO
+    // ==========================================
+
+    voucherForm.elements["numero_voucher"].value =
+      data.numero_voucher || "";
+
+    voucherForm.elements["aerolinea"].value =
+      data.aerolinea || "";
+
+    voucherForm.elements["huesped"].value =
+      data.huesped || "";
+
+    voucherForm.elements["vuelo"].value =
+      data.vuelo || "";
+
+    voucherForm.elements["fecha_vuelo"].value =
+      data.fecha_vuelo || "";
+
+    voucherForm.elements["fecha_emision"].value =
+      data.fecha_emision || "";
+
+    voucherForm.elements["habitacion"].value =
+      data.habitacion || "";
+
+    voucherForm.elements["servicio"].value =
+      data.servicio || "";
+
+    voucherForm.elements["dias"].value =
+      data.dias ?? "";
+
+    voucherForm.elements["noches"].value =
+      data.noches ?? "";
+
+    voucherForm.elements["pax"].value =
+      data.pax ?? "";
+
+    voucherForm.elements["operado_por"].value =
+      data.operado_por || "";
+
+    voucherForm.elements["cabina"].value =
+      data.cabina || "";
+
+    voucherForm.elements["fare_level"].value =
+      data.fare_level || "";
+
+    voucherForm.elements["estado"].value =
+      data.estado || "RECIBIDO";
+
+    voucherForm.elements["observaciones"].value =
+      data.observaciones || "";
 
     voucherForm.hidden = false;
-    setStatus("Revisa y corrige si algo no quedó bien, luego guarda.", "success");
+
+    setStatus(
+      "Voucher leído. Revisa los datos antes de guardarlo.",
+      "success"
+    );
+
   } catch (err) {
+
     console.error(err);
-    setStatus("No se pudo leer el voucher automáticamente. Puedes llenar los datos a mano abajo.", "error");
+
+    setStatus(
+      "No se pudo leer el voucher automáticamente. Puedes ingresar los datos manualmente.",
+      "error"
+    );
+
     voucherForm.hidden = false;
   }
 });
 
-document.getElementById("btn-cancel").addEventListener("click", resetCapture);
+
+// =====================================================
+// CANCELAR CAPTURA
+// =====================================================
+
+document
+  .getElementById("btn-cancel")
+  .addEventListener("click", () => {
+    resetCapture(false);
+  });
+
+
+// =====================================================
+// GUARDAR VOUCHER
+// =====================================================
 
 voucherForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+
+  setStatus("Guardando voucher...", null);
+
   const fd = new FormData(voucherForm);
+
   const record = Object.fromEntries(fd.entries());
-  record.monto = record.monto ? Number(record.monto) : null;
 
-  const { error } = await supabase.from("vouchers").insert([record]);
-  if (error) {
-    console.error(error);
-    setStatus("Error al guardar: " + error.message, "error");
-    return;
-  }
-  setStatus("Voucher guardado en el registro ✅", "success");
-  resetCapture(true);
-});
+  // Convertir números
+  record.dias = record.dias
+    ? Number(record.dias)
+    : null;
 
-function resetCapture(keepStatus) {
-  fileInput.value = "";
-  previewImg.hidden = true;
-  voucherForm.hidden = true;
-  voucherForm.reset();
-  if (!keepStatus) setStatus("", null);
-}
+  record.noches = record.noches
+    ? Number(record.noches)
+    : null;
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+  record.pax = record.pax
+    ? Number(record.pax)
+    : null;
 
-// ---------- Registro ----------
-const registroList = document.getElementById("registro-list");
-const searchInput = document.getElementById("search-input");
-let vouchersCache = [];
-
-async function cargarRegistro() {
-  registroList.innerHTML = `<p class="empty-state">Cargando registros...</p>`;
-  const { data, error } = await supabase
-    .from("vouchers")
-    .select("*")
-    .order("fecha_voucher", { ascending: false });
-
-  if (error) {
-    registroList.innerHTML = `<p class="empty-state">Error cargando datos: ${error.message}</p>`;
-    return;
-  }
-  vouchersCache = data || [];
-  renderRegistro(vouchersCache);
-}
-
-function renderRegistro(list) {
-  if (!list.length) {
-    registroList.innerHTML = `<p class="empty-state">Todavía no hay vouchers registrados.</p>`;
-    return;
-  }
-  registroList.innerHTML = list.map(v => `
-    <div class="voucher-card">
-      <div>
-        <div class="vc-main">${v.huesped || "Sin nombre"} · Hab. ${v.habitacion || "-"}</div>
-        <div class="vc-sub">#${v.numero_voucher || "-"} · ${v.proveedor || "-"} · ${v.fecha_voucher || "-"}</div>
-      </div>
-      <div class="vc-amount">${v.monto ? Number(v.monto).toLocaleString("es-CO") : "-"} ${v.moneda || ""}</div>
-    </div>
-  `).join("");
-}
-
-searchInput.addEventListener("input", () => {
-  const q = searchInput.value.toLowerCase();
-  renderRegistro(vouchersCache.filter(v =>
-    (v.huesped || "").toLowerCase().includes(q) ||
-    (v.habitacion || "").toLowerCase().includes(q) ||
-    (v.numero_voucher || "").toLowerCase().includes(q)
-  ));
-});
-
-// ---------- Exportar a Excel ----------
-document.getElementById("btn-export").addEventListener("click", () => {
-  if (!vouchersCache.length) return alert("No hay datos para exportar.");
-  const rows = vouchersCache.map(v => ({
-    "N° Voucher": v.numero_voucher,
-    "Fecha": v.fecha_voucher,
-    "Huésped": v.huesped,
-    "Habitación": v.habitacion,
-    "Proveedor": v.proveedor,
-    "Monto": v.monto,
-    "Moneda": v.moneda,
-    "Observaciones": v.observaciones,
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Vouchers");
-  const fecha = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `vouchers_${fecha}.xlsx`);
-});
+  // Estado inicial
+  record.estado = record.estado || "RECIB
