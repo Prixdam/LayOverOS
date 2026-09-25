@@ -201,3 +201,164 @@ voucherForm.addEventListener("submit", async (e) => {
 
   // Estado inicial
   record.estado = record.estado || "RECIB
+    // =====================================================
+// LOGIN LAYOVEROS
+// =====================================================
+
+const loginScreen = document.getElementById("login-screen");
+const loginForm = document.getElementById("login-form");
+const loginError = document.getElementById("login-error");
+const app = document.getElementById("app");
+
+
+// Ocultar aplicación mientras no haya sesión
+app.style.display = "none";
+
+
+// =====================================================
+// VERIFICAR SESIÓN
+// =====================================================
+
+async function verificarSesion() {
+
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+
+    return;
+  }
+
+  await verificarPerfil(session.user.id);
+}
+
+
+// =====================================================
+// VERIFICAR PERFIL
+// =====================================================
+
+async function verificarPerfil(userId) {
+
+  const { data: perfil, error } = await supabase
+    .from("profiles")
+    .select("usuario, nombre, rol, activo")
+    .eq("id", userId)
+    .single();
+
+
+  if (error || !perfil || !perfil.activo) {
+
+    await supabase.auth.signOut();
+
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+
+    loginError.textContent =
+      "Usuario sin permisos.";
+
+    return;
+  }
+
+
+  if (perfil.rol !== "ADMIN") {
+
+    await supabase.auth.signOut();
+
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+
+    loginError.textContent =
+      "Este usuario no tiene permisos de administrador.";
+
+    return;
+  }
+
+
+  // LOGIN CORRECTO
+
+  loginScreen.style.display = "none";
+  app.style.display = "block";
+
+  console.log(
+    "Sesión iniciada:",
+    perfil.usuario
+  );
+}
+
+
+// =====================================================
+// FORMULARIO LOGIN
+// =====================================================
+
+loginForm.addEventListener("submit", async (e) => {
+
+  e.preventDefault();
+
+  loginError.textContent = "";
+
+
+  const usuario = document
+    .getElementById("login-usuario")
+    .value
+    .trim()
+    .toUpperCase();
+
+
+  const password = document
+    .getElementById("login-password")
+    .value;
+
+
+  if (!usuario || !password) {
+
+    loginError.textContent =
+      "Completa usuario y contraseña.";
+
+    return;
+  }
+
+
+  if (usuario !== "JDIAZ") {
+
+    loginError.textContent =
+      "Usuario incorrecto.";
+
+    return;
+  }
+
+
+  const { data, error } =
+    await supabase.auth.signInWithPassword({
+
+      email: "jdiaz@layoveros.local",
+
+      password: password
+
+    });
+
+
+  if (error) {
+
+    console.error(error);
+
+    loginError.textContent =
+      "Usuario o contraseña incorrectos.";
+
+    return;
+  }
+
+
+  await verificarPerfil(data.user.id);
+
+});
+
+
+// =====================================================
+// INICIAR
+// =====================================================
+
+verificarSesion();
