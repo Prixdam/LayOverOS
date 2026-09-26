@@ -212,9 +212,8 @@ function llenarCamposDesdeOCR(texto) {
     estadoCampo.value = "RECIBIDO";
   }
 
-  console.log("Auto llenado ejecutado.");
+  console.log(" llenado ejecutado.");
 }
-function llenarCamposDesdeOCR(texto) {
 
   if (!formulario) {
     return;
@@ -413,7 +412,7 @@ function llenarCamposDesdeOCR(texto) {
     estadoCampo.value = "RECIBIDO";
   }
 
-  console.log("Campos identificados automáticamente.");
+  console.log("Campos identificados aumáticamente.");
 }
 
 if (tabs.length) {
