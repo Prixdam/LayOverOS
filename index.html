@@ -1,477 +1,874 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LayOverOS | Control de Vouchers</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
+// =====================================================
+// LAYOVEROS - APP.JS
+// ACCESO DIRECTO
+// =====================================================
 
-<body>
+// =====================================================
+// SUPABASE
+// =====================================================
 
-  <!-- ============================= -->
-  <!-- LOGIN -->
-  <!-- ============================= -->
-
-  <div id="login-screen" class="login-screen">
-
-    <div class="login-card">
-
-      <div class="login-logo">
-        <span class="brand-mark">L</span>
-      </div>
-
-      <h1>LayOverOS</h1>
-
-      <p>Control de vouchers hoteleros</p>
-
-      <form id="login-form">
-
-        <label>
-          Usuario
-          <input
-            id="login-usuario"
-            type="text"
-            placeholder="Ej. JDIAZ"
-            autocomplete="username"
-            required
-          />
-        </label>
-
-        <label>
-          Contraseña
-          <input
-            id="login-password"
-            type="password"
-            placeholder="Contraseña"
-            autocomplete="current-password"
-            required
-          />
-        </label>
-
-        <button
-          type="submit"
-          class="btn btn-primary"
-        >
-          Ingresar
-        </button>
-
-        <p
-          id="login-error"
-          class="login-error"
-        ></p>
-
-      </form>
-
-    </div>
-
-  </div>
+const supabase = window.supabase.createClient(
+  window.SUPABASE_URL,
+  window.SUPABASE_ANON_KEY
+);
 
 
-  <!-- ============================= -->
-  <!-- APLICACIÓN -->
-  <!-- ============================= -->
+// =====================================================
+// ELEMENTOS
+// =====================================================
 
-  <div id="app">
+const app = document.getElementById("app");
+const loginScreen = document.getElementById("login-screen");
 
-    <header class="topbar">
-
-      <div class="brand">
-
-        <span class="brand-mark">L</span>
-
-        <span class="brand-name">
-          LayOverOS
-        </span>
-
-      </div>
-
-      <nav class="tabs">
-
-        <button
-          class="tab-btn active"
-          data-view="captura"
-        >
-          Capturar
-        </button>
-
-        <button
-          class="tab-btn"
-          data-view="registro"
-        >
-          Registro
-        </button>
-
-      </nav>
-
-    </header>
+const fileInput = document.getElementById("file-input");
+const previewImg = document.getElementById("preview-img");
+const statusMsg = document.getElementById("status-msg");
+const voucherForm = document.getElementById("voucher-form");
 
 
-    <main>
+// =====================================================
+// ACCESO DIRECTO
+// =====================================================
 
-      <!-- ============================= -->
-      <!-- CAPTURAR -->
-      <!-- ============================= -->
+if (loginScreen) {
+  loginScreen.style.display = "none";
+}
 
-      <section
-        id="view-captura"
-        class="view active"
-      >
-
-        <div class="capture-card">
-
-          <label
-            for="file-input"
-            class="capture-drop"
-          >
-
-            <div class="capture-icon">
-              📷
-            </div>
-
-            <p class="capture-text">
-              Toca para tomar una foto o subir un voucher
-            </p>
-
-            <small>
-              LayOverOS analizará automáticamente la información
-            </small>
-
-            <input
-              id="file-input"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-            />
-
-          </label>
+if (app) {
+  app.style.display = "block";
+}
 
 
-          <img
-            id="preview-img"
-            class="preview-img"
-            hidden
-            alt="Vista previa del voucher"
-          />
+// =====================================================
+// MENSAJES
+// =====================================================
 
-        </div>
+function setStatus(text, type = "") {
+
+  if (!statusMsg) return;
+
+  statusMsg.textContent = text;
+
+  statusMsg.className =
+    "status-msg" + (type ? ` ${type}` : "");
+
+  statusMsg.hidden = !text;
+}
 
 
-        <div
-          id="status-msg"
-          class="status-msg"
-          hidden
-        ></div>
+// =====================================================
+// NAVEGACIÓN
+// =====================================================
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+
+  btn.addEventListener("click", () => {
+
+    document.querySelectorAll(".tab-btn").forEach((b) => {
+      b.classList.remove("active");
+    });
+
+    document.querySelectorAll(".view").forEach((view) => {
+      view.classList.remove("active");
+    });
+
+    btn.classList.add("active");
+
+    const view = document.getElementById(
+      `view-${btn.dataset.view}`
+    );
+
+    if (view) {
+      view.classList.add("active");
+    }
+
+    if (btn.dataset.view === "registro") {
+      cargarRegistro();
+    }
+
+  });
+
+});
 
 
-        <!-- FORMULARIO -->
+// =====================================================
+// ARCHIVO A BASE64
+// =====================================================
 
-        <form
-          id="voucher-form"
-          class="voucher-form"
-          hidden
-        >
+function fileToBase64(file) {
+
+  return new Promise((resolve, reject) => {
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+
+      const result = reader.result;
+
+      const base64 = result.split(",")[1];
+
+      resolve(base64);
+
+    };
+
+    reader.onerror = reject;
+
+    reader.readAsDataURL(file);
+
+  });
+
+}
+
+
+// =====================================================
+// CAPTURA + OCR
+// =====================================================
+
+if (fileInput) {
+
+  fileInput.addEventListener("change", async (e) => {
+
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    try {
+
+      const base64 = await fileToBase64(file);
+
+      if (previewImg) {
+
+        previewImg.src =
+          `data:${file.type};base64,${base64}`;
+
+        previewImg.hidden = false;
+
+      }
+
+      if (voucherForm) {
+        voucherForm.hidden = true;
+      }
+
+      setStatus(
+        "Leyendo el voucher con IA...",
+        ""
+      );
+
+      const response = await fetch("/api/ocr", {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          image: base64,
+          mediaType: file.type
+        })
+
+      });
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          "No se pudo procesar el voucher."
+        );
+
+      }
+
+
+      const data = await response.json();
+
+      console.log(
+        "Datos extraídos:",
+        data
+      );
+
+
+      if (!voucherForm) return;
+
+
+      voucherForm.elements["numero_voucher"].value =
+        data.numero_voucher || "";
+
+      voucherForm.elements["aerolinea"].value =
+        data.aerolinea || "";
+
+      voucherForm.elements["huesped"].value =
+        data.huesped || "";
+
+      voucherForm.elements["vuelo"].value =
+        data.vuelo || "";
+
+      voucherForm.elements["fecha_vuelo"].value =
+        data.fecha_vuelo || "";
+
+      voucherForm.elements["fecha_emision"].value =
+        data.fecha_emision || "";
+
+      voucherForm.elements["habitacion"].value =
+        data.habitacion || "";
+
+      voucherForm.elements["servicio"].value =
+        data.servicio || "";
+
+      voucherForm.elements["dias"].value =
+        data.dias ?? "";
+
+      voucherForm.elements["noches"].value =
+        data.noches ?? "";
+
+      voucherForm.elements["pax"].value =
+        data.pax ?? "";
+
+      voucherForm.elements["operado_por"].value =
+        data.operado_por || "";
+
+      voucherForm.elements["cabina"].value =
+        data.cabina || "";
+
+      voucherForm.elements["fare_level"].value =
+        data.fare_level || "";
+
+      voucherForm.elements["estado"].value =
+        data.estado || "RECIBIDO";
+
+      voucherForm.elements["observaciones"].value =
+        data.observaciones || "";
+
+
+      voucherForm.hidden = false;
+
+
+      setStatus(
+        "Voucher leído. Revisa los datos antes de guardarlo.",
+        "success"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error OCR:",
+        error
+      );
+
+      setStatus(
+        "No se pudo leer el voucher automáticamente. Puedes ingresar los datos manualmente.",
+        "error"
+      );
+
+      if (voucherForm) {
+        voucherForm.hidden = false;
+      }
+
+    }
+
+  });
+
+}
+
+
+// =====================================================
+// CANCELAR CAPTURA
+// =====================================================
+
+const cancelButton =
+  document.getElementById("btn-cancel");
+
+if (cancelButton) {
+
+  cancelButton.addEventListener("click", () => {
+
+    resetCapture(false);
+
+  });
+
+}
+
+
+// =====================================================
+// REINICIAR CAPTURA
+// =====================================================
+
+function resetCapture(showMessage = true) {
+
+  if (fileInput) {
+    fileInput.value = "";
+  }
+
+  if (previewImg) {
+    previewImg.src = "";
+    previewImg.hidden = true;
+  }
+
+  if (voucherForm) {
+    voucherForm.reset();
+    voucherForm.hidden = true;
+  }
+
+  setStatus(
+    showMessage ? "Captura cancelada." : "",
+    ""
+  );
+
+}
+
+
+// =====================================================
+// GUARDAR VOUCHER
+// =====================================================
+
+if (voucherForm) {
+
+  voucherForm.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    setStatus(
+      "Guardando voucher...",
+      ""
+    );
+
+
+    try {
+
+      const formData =
+        new FormData(voucherForm);
+
+      const record =
+        Object.fromEntries(
+          formData.entries()
+        );
+
+
+      record.dias =
+        record.dias
+          ? Number(record.dias)
+          : null;
+
+      record.noches =
+        record.noches
+          ? Number(record.noches)
+          : null;
+
+      record.pax =
+        record.pax
+          ? Number(record.pax)
+          : null;
+
+      record.estado =
+        record.estado || "RECIBIDO";
+
+
+      const {
+        error
+      } = await supabase
+        .from("vouchers")
+        .insert([record]);
+
+
+      if (error) {
+
+        console.error(
+          "Error guardando voucher:",
+          error
+        );
+
+        throw error;
+
+      }
+
+
+      setStatus(
+        "Voucher guardado correctamente.",
+        "success"
+      );
+
+
+      resetCapture(false);
+
+
+      document.querySelectorAll(".tab-btn")
+        .forEach((btn) => {
+          btn.classList.remove("active");
+        });
+
+
+      document.querySelectorAll(".view")
+        .forEach((view) => {
+          view.classList.remove("active");
+        });
+
+
+      const registroBtn =
+        document.querySelector(
+          '[data-view="registro"]'
+        );
+
+      const registroView =
+        document.getElementById(
+          "view-registro"
+        );
+
+
+      if (registroBtn) {
+        registroBtn.classList.add("active");
+      }
+
+      if (registroView) {
+        registroView.classList.add("active");
+      }
+
+
+      cargarRegistro();
+
+
+    } catch (error) {
+
+      console.error(
+        "Error:",
+        error
+      );
+
+      setStatus(
+        "No se pudo guardar el voucher.",
+        "error"
+      );
+
+    }
+
+  });
+
+}
+
+
+// =====================================================
+// CARGAR REGISTRO
+// =====================================================
+
+async function cargarRegistro() {
+
+  const lista =
+    document.getElementById(
+      "registro-list"
+    );
+
+  if (!lista) return;
+
+
+  lista.innerHTML =
+    `<p class="empty-state">Cargando registros...</p>`;
+
+
+  const {
+    data,
+    error
+  } = await supabase
+    .from("vouchers")
+    .select("*")
+    .order(
+      "created_at",
+      {
+        ascending: false
+      }
+    );
+
+
+  if (error) {
+
+    console.error(
+      "Error cargando registros:",
+      error
+    );
+
+    lista.innerHTML =
+      `<p class="empty-state">
+        No se pudieron cargar los registros.
+      </p>`;
+
+    return;
+
+  }
+
+
+  if (!data || data.length === 0) {
+
+    lista.innerHTML =
+      `<p class="empty-state">
+        No hay vouchers registrados.
+      </p>`;
+
+    return;
+
+  }
+
+
+  renderRegistro(data);
+
+}
+
+
+// =====================================================
+// ESCAPAR HTML
+// =====================================================
+
+function escapeHTML(value) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+}
+
+
+// =====================================================
+// MOSTRAR REGISTRO
+// =====================================================
+
+function renderRegistro(data) {
+
+  const lista =
+    document.getElementById(
+      "registro-list"
+    );
+
+  if (!lista) return;
+
+
+  lista.innerHTML = data
+    .map((voucher) => {
+
+      return `
+
+        <article class="voucher-card">
 
           <h3>
-            Revisa la información del voucher
+            ${escapeHTML(
+              voucher.huesped ||
+              "Sin pasajero"
+            )}
           </h3>
 
-          <p class="form-description">
-            La información fue extraída automáticamente.
-            Corrige cualquier dato antes de guardarlo.
+          <p>
+            <strong>Voucher:</strong>
+            ${escapeHTML(
+              voucher.numero_voucher ||
+              "Sin número"
+            )}
           </p>
 
-
-          <div class="form-grid">
-
-            <label>
-              Número de voucher
-
-              <input
-                type="text"
-                name="numero_voucher"
-                placeholder="Ej. 8281385984"
-              />
-
-            </label>
-
-
-            <label>
-              Aerolínea
-
-              <input
-                type="text"
-                name="aerolinea"
-                placeholder="Ej. Avianca"
-              />
-
-            </label>
-
-
-            <label>
-              Pasajero
-
-              <input
-                type="text"
-                name="huesped"
-                placeholder="Nombre del pasajero"
-              />
-
-            </label>
-
-
-            <label>
-              Vuelo
-
-              <input
-                type="text"
-                name="vuelo"
-                placeholder="Ej. AV8580"
-              />
-
-            </label>
-
-
-            <label>
-              Fecha del vuelo
-
-              <input
-                type="date"
-                name="fecha_vuelo"
-              />
-
-            </label>
-
-
-            <label>
-              Fecha de emisión
-
-              <input
-                type="date"
-                name="fecha_emision"
-              />
-
-            </label>
-
-
-            <label>
-              Habitación
-
-              <input
-                type="text"
-                name="habitacion"
-                placeholder="Número de habitación"
-              />
-
-            </label>
-
-
-            <label>
-              Servicio
-
-              <input
-                type="text"
-                name="servicio"
-                placeholder="Ej. Alojamiento, desayuno y WiFi"
-              />
-
-            </label>
-
-
-            <label>
-              Días
-
-              <input
-                type="number"
-                name="dias"
-                min="0"
-              />
-
-            </label>
-
-
-            <label>
-              Noches
-
-              <input
-                type="number"
-                name="noches"
-                min="0"
-              />
-
-            </label>
-
-
-            <label>
-              PAX
-
-              <input
-                type="number"
-                name="pax"
-                min="1"
-              />
-
-            </label>
-
-
-            <label>
-              Operado por
-
-              <input
-                type="text"
-                name="operado_por"
-                placeholder="Ej. Avianca"
-              />
-
-            </label>
-
-
-            <label>
-              Cabina
-
-              <input
-                type="text"
-                name="cabina"
-                placeholder="Ej. Y"
-              />
-
-            </label>
-
-
-            <label>
-              Nivel de tarifa
-
-              <input
-                type="text"
-                name="fare_level"
-                placeholder="Ej. AV-LM1"
-              />
-
-            </label>
-
-
-            <label>
-              Estado
-
-              <select name="estado">
-
-                <option value="RECIBIDO">
-                  Recibido
-                </option>
-
-                <option value="VALIDADO">
-                  Validado
-                </option>
-
-                <option value="UTILIZADO">
-                  Utilizado
-                </option>
-
-                <option value="COBRADO">
-                  Cobrado
-                </option>
-
-              </select>
-
-            </label>
-
-
-            <label class="full">
-              Observaciones
-
-              <textarea
-                name="observaciones"
-                rows="3"
-                placeholder="Información adicional..."
-              ></textarea>
-
-            </label>
-
-          </div>
-
-
-          <div class="form-actions">
-
-            <button
-              type="button"
-              id="btn-cancel"
-              class="btn btn-ghost"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              class="btn btn-primary"
-            >
-              Guardar voucher
-            </button>
-
-          </div>
-
-        </form>
-
-      </section>
-
-
-      <!-- ============================= -->
-      <!-- REGISTRO -->
-      <!-- ============================= -->
-
-      <section
-        id="view-registro"
-        class="view"
-      >
-
-        <div class="registro-toolbar">
-
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Buscar por voucher, pasajero, vuelo, aerolínea..."
-          />
-
-          <button
-            id="btn-export"
-            class="btn btn-primary"
-          >
-            Exportar a Excel
-          </button>
-
-        </div>
-
-
-        <div
-          id="registro-list"
-          class="registro-list"
-        >
-
-          <p class="empty-state">
-            Cargando registros...
+          <p>
+            <strong>Aerolínea:</strong>
+            ${escapeHTML(
+              voucher.aerolinea ||
+              "Sin información"
+            )}
           </p>
 
-        </div>
+          <p>
+            <strong>Vuelo:</strong>
+            ${escapeHTML(
+              voucher.vuelo ||
+              "Sin información"
+            )}
+          </p>
 
-      </section>
+          <p>
+            <strong>Habitación:</strong>
+            ${escapeHTML(
+              voucher.habitacion ||
+              "Sin información"
+            )}
+          </p>
 
-    </main>
+          <p>
+            <strong>Servicio:</strong>
+            ${escapeHTML(
+              voucher.servicio ||
+              "Sin información"
+            )}
+          </p>
 
-  </div>
+          <p>
+            <strong>Fecha de vuelo:</strong>
+            ${escapeHTML(
+              voucher.fecha_vuelo ||
+              "Sin información"
+            )}
+          </p>
+
+          <p>
+            <strong>Estado:</strong>
+            ${escapeHTML(
+              voucher.estado ||
+              "RECIBIDO"
+            )}
+          </p>
+
+        </article>
+
+      `;
+
+    })
+    .join("");
+
+}
 
 
-  <!-- ============================= -->
-  <!-- LIBRERÍAS -->
-  <!-- ============================= -->
+// =====================================================
+// BUSCADOR
+// =====================================================
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <script src="config.js"></script>
-
-  <script src="app.js"></script>
+const searchInput =
+  document.getElementById(
+    "search-input"
+  );
 
 
-</body>
-</html>
+if (searchInput) {
+
+  searchInput.addEventListener(
+    "input",
+    async () => {
+
+      const search =
+        searchInput.value
+          .trim()
+          .toLowerCase();
+
+
+      const {
+        data,
+        error
+      } = await supabase
+        .from("vouchers")
+        .select("*")
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        );
+
+
+      if (error) {
+
+        console.error(
+          "Error búsqueda:",
+          error
+        );
+
+        return;
+
+      }
+
+
+      if (!search) {
+
+        renderRegistro(
+          data || []
+        );
+
+        return;
+
+      }
+
+
+      const filtrados =
+        (data || []).filter(
+          (voucher) => {
+
+            const texto = [
+
+              voucher.numero_voucher,
+              voucher.aerolinea,
+              voucher.huesped,
+              voucher.vuelo,
+              voucher.habitacion,
+              voucher.servicio,
+              voucher.estado
+
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+
+            return texto.includes(search);
+
+          }
+        );
+
+
+      renderRegistro(
+        filtrados
+      );
+
+    }
+  );
+
+}
+
+
+// =====================================================
+// EXPORTAR A EXCEL
+// =====================================================
+
+const exportButton =
+  document.getElementById(
+    "btn-export"
+  );
+
+
+if (exportButton) {
+
+  exportButton.addEventListener(
+    "click",
+    async () => {
+
+      const {
+        data,
+        error
+      } = await supabase
+        .from("vouchers")
+        .select("*")
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        );
+
+
+      if (error) {
+
+        console.error(
+          "Error exportando:",
+          error
+        );
+
+        alert(
+          "No se pudieron obtener los vouchers."
+        );
+
+        return;
+
+      }
+
+
+      if (!data || data.length === 0) {
+
+        alert(
+          "No hay vouchers para exportar."
+        );
+
+        return;
+
+      }
+
+
+      const filas =
+        data.map(
+          (voucher) => ({
+
+            "Número voucher":
+              voucher.numero_voucher || "",
+
+            "Aerolínea":
+              voucher.aerolinea || "",
+
+            "Huésped":
+              voucher.huesped || "",
+
+            "Vuelo":
+              voucher.vuelo || "",
+
+            "Fecha vuelo":
+              voucher.fecha_vuelo || "",
+
+            "Fecha emisión":
+              voucher.fecha_emision || "",
+
+            "Habitación":
+              voucher.habitacion || "",
+
+            "Servicio":
+              voucher.servicio || "",
+
+            "Días":
+              voucher.dias ?? "",
+
+            "Noches":
+              voucher.noches ?? "",
+
+            "PAX":
+              voucher.pax ?? "",
+
+            "Operado por":
+              voucher.operado_por || "",
+
+            "Cabina":
+              voucher.cabina || "",
+
+            "Nivel tarifa":
+              voucher.fare_level || "",
+
+            "Estado":
+              voucher.estado || "",
+
+            "Observaciones":
+              voucher.observaciones || "",
+
+            "Fecha registro":
+              voucher.created_at || ""
+
+          })
+        );
+
+
+      const worksheet =
+        XLSX.utils.json_to_sheet(
+          filas
+        );
+
+
+      const workbook =
+        XLSX.utils.book_new();
+
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Vouchers"
+      );
+
+
+      XLSX.writeFile(
+        workbook,
+        "LayOverOS_Vouchers.xlsx"
+      );
+
+    }
+  );
+
+}
+
+
+// =====================================================
+// INICIO
+// =====================================================
+
+cargarRegistro();
