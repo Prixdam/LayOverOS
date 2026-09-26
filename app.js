@@ -213,6 +213,58 @@ const app = document.getElementById("app");
 
 // Ocultar aplicación mientras no haya sesión
 app.style.display = "none";
+  loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  loginError.textContent = "";
+
+  const usuario = document
+    .getElementById("login-usuario")
+    .value
+    .trim()
+    .toUpperCase();
+
+  const password = document
+    .getElementById("login-password")
+    .value;
+
+  if (usuario !== "JDIAZ") {
+    loginError.textContent = "Usuario incorrecto.";
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: "jdiaz@layoveros.local",
+    password: password
+  });
+
+  if (error) {
+    console.error(error);
+    loginError.textContent = "Contraseña incorrecta.";
+    return;
+  }
+
+  const { data: perfil, error: perfilError } = await supabase
+    .from("profiles")
+    .select("usuario, nombre, rol, activo")
+    .eq("id", data.user.id)
+    .single();
+
+  if (perfilError || !perfil || !perfil.activo) {
+    await supabase.auth.signOut();
+    loginError.textContent = "Usuario sin permisos.";
+    return;
+  }
+
+  if (perfil.rol !== "ADMIN") {
+    await supabase.auth.signOut();
+    loginError.textContent = "Este usuario no es administrador.";
+    return;
+  }
+
+  loginScreen.style.display = "none";
+  app.style.display = "block";
+});
 
 
 // =====================================================
