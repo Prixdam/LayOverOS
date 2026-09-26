@@ -7,6 +7,215 @@ const tabs = document.querySelectorAll(".tab-btn");
 const vistas = document.querySelectorAll(".view");
 function llenarCamposDesdeOCR(texto) {
 
+  if (!formulario) return;
+
+  function ponerCampo(nombre, valor) {
+    const campo = formulario.elements.namedItem(nombre);
+
+    if (campo && valor) {
+      campo.value = valor.trim();
+    }
+  }
+
+  function convertirFecha(fechaTexto) {
+    const match = fechaTexto
+      .toUpperCase()
+      .replace(/\s+/g, "")
+      .match(/^(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})$/);
+
+    if (!match) return "";
+
+    const meses = {
+      JAN: "01",
+      FEB: "02",
+      MAR: "03",
+      APR: "04",
+      MAY: "05",
+      JUN: "06",
+      JUL: "07",
+      AUG: "08",
+      SEP: "09",
+      OCT: "10",
+      NOV: "11",
+      DEC: "12"
+    };
+
+    return `20${match[3]}-${meses[match[2]]}-${match[1].padStart(2, "0")}`;
+  }
+
+  const lineas = texto
+    .replace(/\r/g, "")
+    .split("\n")
+    .map(linea => linea.trim())
+    .filter(Boolean);
+
+  const textoCompleto = lineas.join("\n");
+
+  // NÚMERO DE VOUCHER
+  const voucher = textoCompleto.match(
+    /VOUCHER\s*ID\s*[:\-]?\s*([0-9][0-9\s]{5,})/i
+  );
+
+  if (voucher) {
+    ponerCampo(
+      "numero_voucher",
+      voucher[1].replace(/\s/g, "")
+    );
+  }
+
+  // HUÉSPED
+  const nombre = textoCompleto.match(
+    /NOMBRE\s*\/?\s*NAME\s*[:\-]?\s*([^\n]+)/i
+  );
+
+  if (nombre) {
+    ponerCampo(
+      "huesped",
+      nombre[1].replace(/\s+/g, " ")
+    );
+  }
+
+  // VUELO
+  const vuelo = textoCompleto.match(
+    /VUELO\s*\/?\s*FLIGHT\s*[:\-]?\s*([A-Z0-9]+)/i
+  );
+
+  if (vuelo) {
+    ponerCampo("vuelo", vuelo[1]);
+  }
+
+  // FECHA DE VUELO
+  const fechaVuelo = textoCompleto.match(
+    /FECHA\s*VUELO\s*\/?\s*FLIGHT\s*DATE\s*[:\-]?\s*(\d{1,2}\s*[A-Z]{3}\s*\d{2})/i
+  );
+
+  if (fechaVuelo) {
+    const fecha = convertirFecha(fechaVuelo[1]);
+
+    if (fecha) {
+      ponerCampo("fecha_vuelo", fecha);
+    }
+  }
+
+  // FECHA DE EMISIÓN
+  const fechaEmision = textoCompleto.match(
+    /EMITIDO\s*\/?\s*ISSUED.*?(\d{1,2}\s*[A-Z]{3}\s*\d{2})/i
+  );
+
+  if (fechaEmision) {
+    const fecha = convertirFecha(fechaEmision[1]);
+
+    if (fecha) {
+      ponerCampo("fecha_emision", fecha);
+    }
+  }
+
+  // PAX
+  const pax = textoCompleto.match(
+    /PAX\s*POR\s*HABITACION\s*[:\-]?\s*(\d+)/i
+  );
+
+  if (pax) {
+    ponerCampo("pax", pax[1]);
+  }
+
+  // ESTADÍA
+  const estancia = textoCompleto.match(
+    /TIEMPO\s*DE\s*ESTADIA\s*\/?\s*LENGTH\s*OF\s*STAY\s*[:\-]?\s*([^\n]+)/i
+  );
+
+  if (estancia) {
+
+    const dias = estancia[1].match(/(\d+)\s*DAY/i);
+    const noches = estancia[1].match(/(\d+)\s*NIGHT/i);
+
+    if (dias) {
+      ponerCampo("dias", dias[1]);
+    }
+
+    if (noches) {
+      ponerCampo("noches", noches[1]);
+    }
+  }
+
+  // SERVICIO
+  const servicio = textoCompleto.match(
+    /SERVICIO\s*\/?\s*SERVICE\s*[:\-]?\s*([^\n]+)/i
+  );
+
+  if (servicio) {
+    ponerCampo("servicio", servicio[1]);
+  }
+
+  // OPERADO POR
+  const operado = textoCompleto.match(
+    /OPERADO\s*POR\s*\/?\s*OPERATED\s*BY\s*[:\-]?\s*([^\n]+)/i
+  );
+
+  if (operado) {
+    ponerCampo("operado_por", operado[1]);
+  }
+
+  // CABINA
+  const cabina = textoCompleto.match(
+    /CABINA\s*\/?\s*CABIN\s*[:\-]?\s*([A-Z])/i
+  );
+
+  if (cabina) {
+    ponerCampo("cabina", cabina[1].toUpperCase());
+  }
+
+  // AEROLÍNEA
+  const aerolineas = [
+    "AVIANCA",
+    "LATAM",
+    "COPA AIRLINES",
+    "AMERICAN AIRLINES",
+    "UNITED AIRLINES",
+    "DELTA AIR LINES",
+    "JETBLUE",
+    "AIR CANADA",
+    "IBERIA",
+    "AEROMEXICO",
+    "SPIRIT AIRLINES",
+    "FRONTIER AIRLINES",
+    "VIVA",
+    "VIVA AEROBUS",
+    "WINGO",
+    "SATENA",
+    "KLM",
+    "AIR FRANCE",
+    "LUFTHANSA",
+    "TURKISH AIRLINES",
+    "QATAR AIRWAYS",
+    "EMIRATES"
+  ];
+
+  for (const aerolinea of aerolineas) {
+
+    const patron = new RegExp(
+      "\\b" + aerolinea.replace(/\s+/g, "\\s+") + "\\b",
+      "i"
+    );
+
+    if (patron.test(textoCompleto)) {
+      ponerCampo("aerolinea", aerolinea);
+      break;
+    }
+  }
+
+  // ESTADO
+  const estadoCampo =
+    formulario.elements.namedItem("estado");
+
+  if (estadoCampo && !estadoCampo.value) {
+    estadoCampo.value = "RECIBIDO";
+  }
+
+  console.log("Auto llenado ejecutado.");
+}
+function llenarCamposDesdeOCR(texto) {
+
   if (!formulario) {
     return;
   }
