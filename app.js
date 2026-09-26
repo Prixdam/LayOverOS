@@ -1,3 +1,4 @@
+document.body.innerHTML = "<h1 style='font-size:40px;padding:30px'>APP.JS SÍ SE ESTÁ EJECUTANDO 🔥</h1>";
 alert("APP.JS CARGADO");
 // =====================================================
 // LAYOVEROS - APP.JS
