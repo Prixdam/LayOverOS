@@ -1,34 +1,14 @@
-// =====================================================
-// LAYOVEROS - APP.JS
-// ACCESO DIRECTO
-// =====================================================
-
-// =====================================================
-// SUPABASE
-// =====================================================
-
 const supabase = window.supabase.createClient(
   window.SUPABASE_URL,
   window.SUPABASE_ANON_KEY
 );
 
-
-// =====================================================
-// ELEMENTOS
-// =====================================================
-
 const app = document.getElementById("app");
 const loginScreen = document.getElementById("login-screen");
-
 const fileInput = document.getElementById("file-input");
 const previewImg = document.getElementById("preview-img");
 const statusMsg = document.getElementById("status-msg");
 const voucherForm = document.getElementById("voucher-form");
-
-
-// =====================================================
-// ACCESO DIRECTO
-// =====================================================
 
 if (loginScreen) {
   loginScreen.style.display = "none";
@@ -38,32 +18,16 @@ if (app) {
   app.style.display = "block";
 }
 
-
-// =====================================================
-// MENSAJES
-// =====================================================
-
 function setStatus(text, type = "") {
-
   if (!statusMsg) return;
 
   statusMsg.textContent = text;
-
-  statusMsg.className =
-    "status-msg" + (type ? ` ${type}` : "");
-
+  statusMsg.className = "status-msg" + (type ? " " + type : "");
   statusMsg.hidden = !text;
 }
 
-
-// =====================================================
-// NAVEGACIÓN
-// =====================================================
-
 document.querySelectorAll(".tab-btn").forEach((btn) => {
-
   btn.addEventListener("click", () => {
-
     document.querySelectorAll(".tab-btn").forEach((b) => {
       b.classList.remove("active");
     });
@@ -75,7 +39,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.add("active");
 
     const view = document.getElementById(
-      `view-${btn.dataset.view}`
+      "view-" + btn.dataset.view
     );
 
     if (view) {
@@ -85,110 +49,62 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     if (btn.dataset.view === "registro") {
       cargarRegistro();
     }
-
   });
-
 });
 
-
-// =====================================================
-// ARCHIVO A BASE64
-// =====================================================
-
 function fileToBase64(file) {
-
   return new Promise((resolve, reject) => {
-
     const reader = new FileReader();
 
     reader.onload = () => {
-
       const result = reader.result;
-
       const base64 = result.split(",")[1];
-
       resolve(base64);
-
     };
 
     reader.onerror = reject;
-
     reader.readAsDataURL(file);
-
   });
-
 }
 
-
-// =====================================================
-// CAPTURA + OCR
-// =====================================================
-
 if (fileInput) {
-
-  fileInput.addEventListener("change", async (e) => {
-
-    const file = e.target.files[0];
+  fileInput.addEventListener("change", async (event) => {
+    const file = event.target.files[0];
 
     if (!file) return;
 
     try {
-
       const base64 = await fileToBase64(file);
 
       if (previewImg) {
-
-        previewImg.src =
-          `data:${file.type};base64,${base64}`;
-
+        previewImg.src = "data:" + file.type + ";base64," + base64;
         previewImg.hidden = false;
-
       }
 
       if (voucherForm) {
         voucherForm.hidden = true;
       }
 
-      setStatus(
-        "Leyendo el voucher con IA...",
-        ""
-      );
+      setStatus("Leyendo el voucher con IA...");
 
       const response = await fetch("/api/ocr", {
-
         method: "POST",
-
         headers: {
           "Content-Type": "application/json"
         },
-
         body: JSON.stringify({
           image: base64,
           mediaType: file.type
         })
-
       });
 
-
       if (!response.ok) {
-
-        throw new Error(
-          "No se pudo procesar el voucher."
-        );
-
+        throw new Error("No se pudo procesar el voucher");
       }
-
 
       const data = await response.json();
 
-      console.log(
-        "Datos extraídos:",
-        data
-      );
-
-
       if (!voucherForm) return;
-
 
       voucherForm.elements["numero_voucher"].value =
         data.numero_voucher || "";
@@ -238,22 +154,14 @@ if (fileInput) {
       voucherForm.elements["observaciones"].value =
         data.observaciones || "";
 
-
       voucherForm.hidden = false;
-
 
       setStatus(
         "Voucher leído. Revisa los datos antes de guardarlo.",
         "success"
       );
-
-
     } catch (error) {
-
-      console.error(
-        "Error OCR:",
-        error
-      );
+      console.error(error);
 
       setStatus(
         "No se pudo leer el voucher automáticamente. Puedes ingresar los datos manualmente.",
@@ -263,38 +171,19 @@ if (fileInput) {
       if (voucherForm) {
         voucherForm.hidden = false;
       }
-
     }
-
   });
-
 }
 
-
-// =====================================================
-// CANCELAR CAPTURA
-// =====================================================
-
-const cancelButton =
-  document.getElementById("btn-cancel");
+const cancelButton = document.getElementById("btn-cancel");
 
 if (cancelButton) {
-
   cancelButton.addEventListener("click", () => {
-
     resetCapture(false);
-
   });
-
 }
 
-
-// =====================================================
-// REINICIAR CAPTURA
-// =====================================================
-
 function resetCapture(showMessage = true) {
-
   if (fileInput) {
     fileInput.value = "";
   }
@@ -310,109 +199,55 @@ function resetCapture(showMessage = true) {
   }
 
   setStatus(
-    showMessage ? "Captura cancelada." : "",
-    ""
+    showMessage ? "Captura cancelada." : ""
   );
-
 }
 
-
-// =====================================================
-// GUARDAR VOUCHER
-// =====================================================
-
 if (voucherForm) {
+  voucherForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-  voucherForm.addEventListener("submit", async (e) => {
-
-    e.preventDefault();
-
-    setStatus(
-      "Guardando voucher...",
-      ""
-    );
-
+    setStatus("Guardando voucher...");
 
     try {
+      const formData = new FormData(voucherForm);
+      const record = Object.fromEntries(formData.entries());
 
-      const formData =
-        new FormData(voucherForm);
+      record.dias = record.dias ? Number(record.dias) : null;
+      record.noches = record.noches ? Number(record.noches) : null;
+      record.pax = record.pax ? Number(record.pax) : null;
+      record.estado = record.estado || "RECIBIDO";
 
-      const record =
-        Object.fromEntries(
-          formData.entries()
-        );
-
-
-      record.dias =
-        record.dias
-          ? Number(record.dias)
-          : null;
-
-      record.noches =
-        record.noches
-          ? Number(record.noches)
-          : null;
-
-      record.pax =
-        record.pax
-          ? Number(record.pax)
-          : null;
-
-      record.estado =
-        record.estado || "RECIBIDO";
-
-
-      const {
-        error
-      } = await supabase
+      const result = await supabase
         .from("vouchers")
         .insert([record]);
 
-
-      if (error) {
-
-        console.error(
-          "Error guardando voucher:",
-          error
-        );
-
-        throw error;
-
+      if (result.error) {
+        throw result.error;
       }
-
 
       setStatus(
         "Voucher guardado correctamente.",
         "success"
       );
 
-
       resetCapture(false);
 
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.classList.remove("active");
+      });
 
-      document.querySelectorAll(".tab-btn")
-        .forEach((btn) => {
-          btn.classList.remove("active");
-        });
+      document.querySelectorAll(".view").forEach((view) => {
+        view.classList.remove("active");
+      });
 
+      const registroBtn = document.querySelector(
+        '[data-view="registro"]'
+      );
 
-      document.querySelectorAll(".view")
-        .forEach((view) => {
-          view.classList.remove("active");
-        });
-
-
-      const registroBtn =
-        document.querySelector(
-          '[data-view="registro"]'
-        );
-
-      const registroView =
-        document.getElementById(
-          "view-registro"
-        );
-
+      const registroView = document.getElementById(
+        "view-registro"
+      );
 
       if (registroBtn) {
         registroBtn.classList.add("active");
@@ -422,105 +257,54 @@ if (voucherForm) {
         registroView.classList.add("active");
       }
 
-
       cargarRegistro();
-
-
     } catch (error) {
-
-      console.error(
-        "Error:",
-        error
-      );
+      console.error(error);
 
       setStatus(
         "No se pudo guardar el voucher.",
         "error"
       );
-
     }
-
   });
-
 }
 
-
-// =====================================================
-// CARGAR REGISTRO
-// =====================================================
-
 async function cargarRegistro() {
-
-  const lista =
-    document.getElementById(
-      "registro-list"
-    );
+  const lista = document.getElementById("registro-list");
 
   if (!lista) return;
 
-
   lista.innerHTML =
-    `<p class="empty-state">Cargando registros...</p>`;
+    '<p class="empty-state">Cargando registros...</p>';
 
-
-  const {
-    data,
-    error
-  } = await supabase
+  const result = await supabase
     .from("vouchers")
     .select("*")
-    .order(
-      "created_at",
-      {
-        ascending: false
-      }
-    );
+    .order("created_at", {
+      ascending: false
+    });
 
-
-  if (error) {
-
-    console.error(
-      "Error cargando registros:",
-      error
-    );
+  if (result.error) {
+    console.error(result.error);
 
     lista.innerHTML =
-      `<p class="empty-state">
-        No se pudieron cargar los registros.
-      </p>`;
+      '<p class="empty-state">No se pudieron cargar los registros.</p>';
 
     return;
-
   }
 
-
-  if (!data || data.length === 0) {
-
+  if (!result.data || result.data.length === 0) {
     lista.innerHTML =
-      `<p class="empty-state">
-        No hay vouchers registrados.
-      </p>`;
+      '<p class="empty-state">No hay vouchers registrados.</p>';
 
     return;
-
   }
 
-
-  renderRegistro(data);
-
+  renderRegistro(result.data);
 }
 
-
-// =====================================================
-// ESCAPAR HTML
-// =====================================================
-
 function escapeHTML(value) {
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
+  if (value === null || value === undefined) {
     return "";
   }
 
@@ -530,345 +314,166 @@ function escapeHTML(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-
 }
 
-
-// =====================================================
-// MOSTRAR REGISTRO
-// =====================================================
-
 function renderRegistro(data) {
-
-  const lista =
-    document.getElementById(
-      "registro-list"
-    );
+  const lista = document.getElementById("registro-list");
 
   if (!lista) return;
 
+  lista.innerHTML = data.map((voucher) => {
+    return `
+      <article class="voucher-card">
+        <h3>${escapeHTML(voucher.huesped || "Sin pasajero")}</h3>
 
-  lista.innerHTML = data
-    .map((voucher) => {
+        <p>
+          <strong>Voucher:</strong>
+          ${escapeHTML(voucher.numero_voucher || "Sin número")}
+        </p>
 
-      return `
+        <p>
+          <strong>Aerolínea:</strong>
+          ${escapeHTML(voucher.aerolinea || "Sin información")}
+        </p>
 
-        <article class="voucher-card">
+        <p>
+          <strong>Vuelo:</strong>
+          ${escapeHTML(voucher.vuelo || "Sin información")}
+        </p>
 
-          <h3>
-            ${escapeHTML(
-              voucher.huesped ||
-              "Sin pasajero"
-            )}
-          </h3>
+        <p>
+          <strong>Habitación:</strong>
+          ${escapeHTML(voucher.habitacion || "Sin información")}
+        </p>
 
-          <p>
-            <strong>Voucher:</strong>
-            ${escapeHTML(
-              voucher.numero_voucher ||
-              "Sin número"
-            )}
-          </p>
+        <p>
+          <strong>Servicio:</strong>
+          ${escapeHTML(voucher.servicio || "Sin información")}
+        </p>
 
-          <p>
-            <strong>Aerolínea:</strong>
-            ${escapeHTML(
-              voucher.aerolinea ||
-              "Sin información"
-            )}
-          </p>
+        <p>
+          <strong>Fecha de vuelo:</strong>
+          ${escapeHTML(voucher.fecha_vuelo || "Sin información")}
+        </p>
 
-          <p>
-            <strong>Vuelo:</strong>
-            ${escapeHTML(
-              voucher.vuelo ||
-              "Sin información"
-            )}
-          </p>
-
-          <p>
-            <strong>Habitación:</strong>
-            ${escapeHTML(
-              voucher.habitacion ||
-              "Sin información"
-            )}
-          </p>
-
-          <p>
-            <strong>Servicio:</strong>
-            ${escapeHTML(
-              voucher.servicio ||
-              "Sin información"
-            )}
-          </p>
-
-          <p>
-            <strong>Fecha de vuelo:</strong>
-            ${escapeHTML(
-              voucher.fecha_vuelo ||
-              "Sin información"
-            )}
-          </p>
-
-          <p>
-            <strong>Estado:</strong>
-            ${escapeHTML(
-              voucher.estado ||
-              "RECIBIDO"
-            )}
-          </p>
-
-        </article>
-
-      `;
-
-    })
-    .join("");
-
+        <p>
+          <strong>Estado:</strong>
+          ${escapeHTML(voucher.estado || "RECIBIDO")}
+        </p>
+      </article>
+    `;
+  }).join("");
 }
 
-
-// =====================================================
-// BUSCADOR
-// =====================================================
-
-const searchInput =
-  document.getElementById(
-    "search-input"
-  );
-
+const searchInput = document.getElementById("search-input");
 
 if (searchInput) {
+  searchInput.addEventListener("input", async () => {
+    const search = searchInput.value.trim().toLowerCase();
 
-  searchInput.addEventListener(
-    "input",
-    async () => {
+    const result = await supabase
+      .from("vouchers")
+      .select("*")
+      .order("created_at", {
+        ascending: false
+      });
 
-      const search =
-        searchInput.value
-          .trim()
-          .toLowerCase();
-
-
-      const {
-        data,
-        error
-      } = await supabase
-        .from("vouchers")
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending: false
-          }
-        );
-
-
-      if (error) {
-
-        console.error(
-          "Error búsqueda:",
-          error
-        );
-
-        return;
-
-      }
-
-
-      if (!search) {
-
-        renderRegistro(
-          data || []
-        );
-
-        return;
-
-      }
-
-
-      const filtrados =
-        (data || []).filter(
-          (voucher) => {
-
-            const texto = [
-
-              voucher.numero_voucher,
-              voucher.aerolinea,
-              voucher.huesped,
-              voucher.vuelo,
-              voucher.habitacion,
-              voucher.servicio,
-              voucher.estado
-
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase();
-
-
-            return texto.includes(search);
-
-          }
-        );
-
-
-      renderRegistro(
-        filtrados
-      );
-
+    if (result.error) {
+      console.error(result.error);
+      return;
     }
-  );
 
+    const data = result.data || [];
+
+    if (!search) {
+      renderRegistro(data);
+      return;
+    }
+
+    const filtered = data.filter((voucher) => {
+      const text = [
+        voucher.numero_voucher,
+        voucher.aerolinea,
+        voucher.huesped,
+        voucher.vuelo,
+        voucher.habitacion,
+        voucher.servicio,
+        voucher.estado
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return text.includes(search);
+    });
+
+    renderRegistro(filtered);
+  });
 }
 
-
-// =====================================================
-// EXPORTAR A EXCEL
-// =====================================================
-
-const exportButton =
-  document.getElementById(
-    "btn-export"
-  );
-
+const exportButton = document.getElementById("btn-export");
 
 if (exportButton) {
+  exportButton.addEventListener("click", async () => {
+    const result = await supabase
+      .from("vouchers")
+      .select("*")
+      .order("created_at", {
+        ascending: false
+      });
 
-  exportButton.addEventListener(
-    "click",
-    async () => {
+    if (result.error) {
+      console.error(result.error);
 
-      const {
-        data,
-        error
-      } = await supabase
-        .from("vouchers")
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending: false
-          }
-        );
+      alert("No se pudieron obtener los vouchers.");
 
-
-      if (error) {
-
-        console.error(
-          "Error exportando:",
-          error
-        );
-
-        alert(
-          "No se pudieron obtener los vouchers."
-        );
-
-        return;
-
-      }
-
-
-      if (!data || data.length === 0) {
-
-        alert(
-          "No hay vouchers para exportar."
-        );
-
-        return;
-
-      }
-
-
-      const filas =
-        data.map(
-          (voucher) => ({
-
-            "Número voucher":
-              voucher.numero_voucher || "",
-
-            "Aerolínea":
-              voucher.aerolinea || "",
-
-            "Huésped":
-              voucher.huesped || "",
-
-            "Vuelo":
-              voucher.vuelo || "",
-
-            "Fecha vuelo":
-              voucher.fecha_vuelo || "",
-
-            "Fecha emisión":
-              voucher.fecha_emision || "",
-
-            "Habitación":
-              voucher.habitacion || "",
-
-            "Servicio":
-              voucher.servicio || "",
-
-            "Días":
-              voucher.dias ?? "",
-
-            "Noches":
-              voucher.noches ?? "",
-
-            "PAX":
-              voucher.pax ?? "",
-
-            "Operado por":
-              voucher.operado_por || "",
-
-            "Cabina":
-              voucher.cabina || "",
-
-            "Nivel tarifa":
-              voucher.fare_level || "",
-
-            "Estado":
-              voucher.estado || "",
-
-            "Observaciones":
-              voucher.observaciones || "",
-
-            "Fecha registro":
-              voucher.created_at || ""
-
-          })
-        );
-
-
-      const worksheet =
-        XLSX.utils.json_to_sheet(
-          filas
-        );
-
-
-      const workbook =
-        XLSX.utils.book_new();
-
-
-      XLSX.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Vouchers"
-      );
-
-
-      XLSX.writeFile(
-        workbook,
-        "LayOverOS_Vouchers.xlsx"
-      );
-
+      return;
     }
-  );
 
+    const data = result.data || [];
+
+    if (data.length === 0) {
+      alert("No hay vouchers para exportar.");
+      return;
+    }
+
+    const filas = data.map((voucher) => ({
+      "Número voucher": voucher.numero_voucher || "",
+      "Aerolínea": voucher.aerolinea || "",
+      "Huésped": voucher.huesped || "",
+      "Vuelo": voucher.vuelo || "",
+      "Fecha vuelo": voucher.fecha_vuelo || "",
+      "Fecha emisión": voucher.fecha_emision || "",
+      "Habitación": voucher.habitacion || "",
+      "Servicio": voucher.servicio || "",
+      "Días": voucher.dias ?? "",
+      "Noches": voucher.noches ?? "",
+      "PAX": voucher.pax ?? "",
+      "Operado por": voucher.operado_por || "",
+      "Cabina": voucher.cabina || "",
+      "Nivel tarifa": voucher.fare_level || "",
+      "Estado": voucher.estado || "",
+      "Observaciones": voucher.observaciones || "",
+      "Fecha registro": voucher.created_at || ""
+    }));
+
+    const worksheet =
+      XLSX.utils.json_to_sheet(filas);
+
+    const workbook =
+      XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Vouchers"
+    );
+
+    XLSX.writeFile(
+      workbook,
+      "LayOverOS_Vouchers.xlsx"
+    );
+  });
 }
-
-
-// =====================================================
-// INICIO
-// =====================================================
 
 cargarRegistro();
