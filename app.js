@@ -47,6 +47,7 @@ loginScreen.style.display = "flex";
 // =====================================================
 
 loginForm.addEventListener("submit", async (e) => {
+  alert("EL LOGIN ESTÁ FUNCIONANDO");
 
   e.preventDefault();
 
