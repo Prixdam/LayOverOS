@@ -494,6 +494,7 @@ if (archivo) {
 
       console.log("TEXTO OCR:");
       console.log(texto);
+      alert(texto);
       llenarCamposDesdeOCR(texto);
 
       if (formulario) {
