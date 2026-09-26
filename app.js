@@ -1,354 +1,603 @@
-// =====================================================
-// LAYOVEROS - APP.JS
-// =====================================================
-
-
-// =====================================================
-// SUPABASE
-// =====================================================
-
-const supabase = window.supabase.createClient(
+const supabaseClient = window.supabase.createClient(
   window.SUPABASE_URL,
   window.SUPABASE_ANON_KEY
 );
 
-
-// =====================================================
-// ELEMENTOS DEL LOGIN
-// =====================================================
-
-const loginScreen = document.getElementById("login-screen");
-const loginForm = document.getElementById("login-form");
-const loginError = document.getElementById("login-error");
-
-
-// =====================================================
-// ELEMENTOS DE LA APLICACIÓN
-// =====================================================
-
 const app = document.getElementById("app");
-
 const fileInput = document.getElementById("file-input");
 const previewImg = document.getElementById("preview-img");
 const statusMsg = document.getElementById("status-msg");
 const voucherForm = document.getElementById("voucher-form");
 
-
-// =====================================================
-// ESTADO INICIAL
-// =====================================================
-
 if (app) {
-  app.style.display = "none";
+  app.style.display = "block";
 }
 
-if (loginScreen) {
-  loginScreen.style.display = "flex";
-}
+const tabs = document.querySelectorAll(".tab-btn");
+const views = document.querySelectorAll(".view");
 
+tabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const viewName = tab.dataset.view;
 
-// =====================================================
-// LOGIN
-// =====================================================
+    tabs.forEach((item) => {
+      item.classList.remove("active");
+    });
 
-if (loginForm) {
+    views.forEach((view) => {
+      view.classList.remove("active");
+    });
 
-  loginForm.addEventListener("submit", async (e) => {
+    tab.classList.add("active");
 
-    e.preventDefault();
+    const selectedView = document.getElementById(
+      "view-" + viewName
+    );
 
-    if (loginError) {
-      loginError.textContent = "";
+    if (selectedView) {
+      selectedView.classList.add("active");
     }
 
-    const usuario = document
-      .getElementById("login-usuario")
-      .value
-      .trim()
-      .toUpperCase();
+    if (viewName === "registro") {
+      cargarRegistro();
+    }
+  });
+});
 
-    const password = document
-      .getElementById("login-password")
-      .value;
+function mostrarEstado(texto, tipo = "normal") {
+  if (!statusMsg) return;
 
+  statusMsg.hidden = false;
+  statusMsg.textContent = texto;
+  statusMsg.className = "status-msg " + tipo;
+}
 
-    // -----------------------------------------------
-    // VALIDAR CAMPOS
-    // -----------------------------------------------
+function limpiarFormulario() {
+  if (!voucherForm) return;
 
-    if (!usuario || !password) {
+  voucherForm.reset();
 
-      loginError.textContent =
-        "Completa usuario y contraseña.";
+  const estado = voucherForm.querySelector(
+    '[name="estado"]'
+  );
 
+  if (estado) {
+    estado.value = "RECIBIDO";
+  }
+}
+
+function convertirFecha(valor) {
+  if (!valor) return "";
+
+  const texto = String(valor).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    return texto;
+  }
+
+  const partes = texto.split(/[\/\-]/);
+
+  if (partes.length === 3) {
+    if (partes[0].length === 4) {
+      return texto;
+    }
+
+    if (partes[2].length === 4) {
+      return `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
+    }
+  }
+
+  return "";
+}
+
+function ponerValor(nombre, valor) {
+  const campo = voucherForm?.querySelector(
+    `[name="${nombre}"]`
+  );
+
+  if (!campo || valor === undefined || valor === null) {
+    return;
+  }
+
+  campo.value = valor;
+}
+
+function llenarFormulario(datos) {
+  if (!datos || !voucherForm) return;
+
+  ponerValor("numero_voucher", datos.numero_voucher);
+  ponerValor("aerolinea", datos.aerolinea);
+  ponerValor("huesped", datos.huesped || datos.pasajero);
+  ponerValor("vuelo", datos.vuelo);
+
+  ponerValor(
+    "fecha_vuelo",
+    convertirFecha(datos.fecha_vuelo)
+  );
+
+  ponerValor(
+    "fecha_emision",
+    convertirFecha(datos.fecha_emision)
+  );
+
+  ponerValor("habitacion", datos.habitacion);
+  ponerValor("servicio", datos.servicio);
+  ponerValor("dias", datos.dias);
+  ponerValor("noches", datos.noches);
+  ponerValor("pax", datos.pax);
+  ponerValor("operado_por", datos.operado_por);
+  ponerValor("cabina", datos.cabina);
+  ponerValor("fare_level", datos.fare_level);
+  ponerValor("observaciones", datos.observaciones);
+
+  const estado = voucherForm.querySelector(
+    '[name="estado"]'
+  );
+
+  if (estado) {
+    estado.value = datos.estado || "RECIBIDO";
+  }
+
+  voucherForm.hidden = false;
+}
+
+function archivoABase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(reader.result);
+    };
+
+    reader.onerror = () => {
+      reject(new Error("No se pudo leer la imagen."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+async function procesarVoucher(file) {
+  if (!file) return;
+
+  try {
+    limpiarFormulario();
+
+    previewImg.hidden = false;
+    previewImg.src = URL.createObjectURL(file);
+
+    voucherForm.hidden = true;
+
+    mostrarEstado(
+      "Leyendo el voucher...",
+      "loading"
+    );
+
+    const base64 = await archivoABase64(file);
+
+    mostrarEstado(
+      "Analizando la información del voucher...",
+      "loading"
+    );
+
+    const respuesta = await fetch("/api/ocr", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        image: base64
+      })
+    });
+
+    const textoRespuesta = await respuesta.text();
+
+    let resultado;
+
+    try {
+      resultado = JSON.parse(textoRespuesta);
+    } catch {
+      throw new Error(
+        "El servidor respondió con información inválida."
+      );
+    }
+
+    if (!respuesta.ok) {
+      throw new Error(
+        resultado.error ||
+        "No se pudo procesar el voucher."
+      );
+    }
+
+    const datos =
+      resultado.data ||
+      resultado.result ||
+      resultado.voucher ||
+      resultado;
+
+    llenarFormulario(datos);
+
+    mostrarEstado(
+      "Voucher analizado. Revisa los datos antes de guardar.",
+      "success"
+    );
+
+  } catch (error) {
+
+    console.error("Error procesando voucher:", error);
+
+    mostrarEstado(
+      error.message ||
+      "No se pudo procesar el voucher.",
+      "error"
+    );
+
+    voucherForm.hidden = true;
+  }
+}
+
+if (fileInput) {
+  fileInput.addEventListener("change", async (event) => {
+
+    const file = event.target.files?.[0];
+
+    if (!file) {
       return;
     }
 
+    await procesarVoucher(file);
+  });
+}
 
-    // -----------------------------------------------
-    // VALIDAR USUARIO
-    // -----------------------------------------------
+if (voucherForm) {
+  voucherForm.addEventListener("submit", async (event) => {
 
-    if (usuario !== "JDIAZ") {
+    event.preventDefault();
 
-      loginError.textContent =
-        "Usuario incorrecto.";
+    const formData = new FormData(voucherForm);
 
-      return;
-    }
+    const record = {
+      numero_voucher:
+        formData.get("numero_voucher") || null,
 
+      aerolinea:
+        formData.get("aerolinea") || null,
 
-    // -----------------------------------------------
-    // AUTENTICAR CON SUPABASE
-    // -----------------------------------------------
+      huesped:
+        formData.get("huesped") || null,
 
-    loginError.textContent =
-      "Verificando acceso...";
+      vuelo:
+        formData.get("vuelo") || null,
 
+      fecha_vuelo:
+        formData.get("fecha_vuelo") || null,
+
+      fecha_emision:
+        formData.get("fecha_emision") || null,
+
+      habitacion:
+        formData.get("habitacion") || null,
+
+      servicio:
+        formData.get("servicio") || null,
+
+      dias:
+        formData.get("dias")
+          ? Number(formData.get("dias"))
+          : null,
+
+      noches:
+        formData.get("noches")
+          ? Number(formData.get("noches"))
+          : null,
+
+      pax:
+        formData.get("pax")
+          ? Number(formData.get("pax"))
+          : null,
+
+      operado_por:
+        formData.get("operado_por") || null,
+
+      cabina:
+        formData.get("cabina") || null,
+
+      fare_level:
+        formData.get("fare_level") || null,
+
+      estado:
+        formData.get("estado") || "RECIBIDO",
+
+      observaciones:
+        formData.get("observaciones") || null
+    };
 
     try {
 
-      const {
-        data,
-        error
-      } = await supabase.auth.signInWithPassword({
+      mostrarEstado(
+        "Guardando voucher...",
+        "loading"
+      );
 
-        email: "jdiaz@layoveros.local",
-
-        password: password
-
-      });
-
+      const { error } = await supabaseClient
+        .from("vouchers")
+        .insert([record]);
 
       if (error) {
-
-        console.error(
-          "Error de autenticación:",
-          error
-        );
-
-        loginError.textContent =
-          "Contraseña incorrecta.";
-
-        return;
+        throw error;
       }
 
+      mostrarEstado(
+        "Voucher guardado correctamente.",
+        "success"
+      );
 
-      if (!data || !data.user) {
+      voucherForm.hidden = true;
 
-        loginError.textContent =
-          "No se pudo iniciar la sesión.";
+      previewImg.hidden = true;
+      previewImg.removeAttribute("src");
 
-        return;
-      }
+      fileInput.value = "";
 
-
-      // ---------------------------------------------
-      // BUSCAR PERFIL
-      // ---------------------------------------------
-
-      const {
-        data: perfil,
-        error: perfilError
-      } = await supabase
-        .from("profiles")
-        .select(
-          "usuario, nombre, rol, activo"
-        )
-        .eq(
-          "id",
-          data.user.id
-        )
-        .single();
-
-
-      if (perfilError || !perfil) {
-
-        console.error(
-          "Error buscando perfil:",
-          perfilError
-        );
-
-        await supabase.auth.signOut();
-
-        loginError.textContent =
-          "No se encontró el perfil del usuario.";
-
-        return;
-      }
-
-
-      // ---------------------------------------------
-      // COMPROBAR ESTADO
-      // ---------------------------------------------
-
-      if (!perfil.activo) {
-
-        await supabase.auth.signOut();
-
-        loginError.textContent =
-          "Este usuario está desactivado.";
-
-        return;
-      }
-
-
-      // ---------------------------------------------
-      // COMPROBAR ROL
-      // ---------------------------------------------
-
-      if (perfil.rol !== "ADMIN") {
-
-        await supabase.auth.signOut();
-
-        loginError.textContent =
-          "Este usuario no tiene permisos de administrador.";
-
-        return;
-      }
-
-
-      // ---------------------------------------------
-      // LOGIN CORRECTO
-      // ---------------------------------------------
-
-      entrarAplicacion(perfil);
+      setTimeout(() => {
+        statusMsg.hidden = true;
+      }, 2500);
 
     } catch (error) {
 
       console.error(
-        "Error inesperado:",
+        "Error guardando voucher:",
         error
       );
 
-      loginError.textContent =
-        "Ocurrió un error al iniciar sesión.";
-
+      mostrarEstado(
+        error.message ||
+        "No se pudo guardar el voucher.",
+        "error"
+      );
     }
-
   });
-
 }
 
+const btnCancel = document.getElementById("btn-cancel");
 
-// =====================================================
-// ENTRAR A LA APLICACIÓN
-// =====================================================
+if (btnCancel) {
+  btnCancel.addEventListener("click", () => {
 
-function entrarAplicacion(perfil) {
+    limpiarFormulario();
 
-  if (loginScreen) {
-    loginScreen.style.display = "none";
-  }
+    voucherForm.hidden = true;
 
-  if (app) {
-    app.style.display = "block";
-  }
+    previewImg.hidden = true;
+    previewImg.removeAttribute("src");
 
-  console.log(
-    "Sesión iniciada:",
-    perfil.usuario,
-    perfil.rol
+    fileInput.value = "";
+
+    if (statusMsg) {
+      statusMsg.hidden = true;
+    }
+  });
+}
+
+async function cargarRegistro() {
+
+  const lista = document.getElementById(
+    "registro-list"
   );
 
-}
+  if (!lista) return;
 
-
-// =====================================================
-// VERIFICAR SESIÓN EXISTENTE
-// =====================================================
-
-async function verificarSesion() {
+  lista.innerHTML =
+    '<p class="empty-state">Cargando registros...</p>';
 
   try {
 
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
+    const { data, error } = await supabaseClient
+      .from("vouchers")
+      .select("*")
+      .order("created_at", {
+        ascending: false
+      });
 
-
-    if (!session) {
-
-      if (loginScreen) {
-        loginScreen.style.display = "flex";
-      }
-
-      if (app) {
-        app.style.display = "none";
-      }
-
-      return;
+    if (error) {
+      throw error;
     }
 
-
-    // -----------------------------------------------
-    // BUSCAR PERFIL
-    // -----------------------------------------------
-
-    const {
-      data: perfil,
-      error
-    } = await supabase
-      .from("profiles")
-      .select(
-        "usuario, nombre, rol, activo"
-      )
-      .eq(
-        "id",
-        session.user.id
-      )
-      .single();
-
-
-    if (
-      error ||
-      !perfil ||
-      !perfil.activo ||
-      perfil.rol !== "ADMIN"
-    ) {
-
-      await supabase.auth.signOut();
-
-      if (loginScreen) {
-        loginScreen.style.display = "flex";
-      }
-
-      if (app) {
-        app.style.display = "none";
-      }
-
-      return;
-    }
-
-
-    entrarAplicacion(perfil);
+    renderizarRegistro(data || []);
 
   } catch (error) {
 
     console.error(
-      "Error verificando sesión:",
+      "Error cargando registro:",
       error
     );
 
-    if (loginScreen) {
-      loginScreen.style.display = "flex";
-    }
-
-    if (app) {
-      app.style.display = "none";
-    }
-
+    lista.innerHTML =
+      '<p class="empty-state">No se pudieron cargar los registros.</p>';
   }
-
 }
 
+function escapeHTML(valor) {
 
-// =====================================================
-// CERRAR SESIÓN
-// =====================================================
+  if (valor === null || valor === undefined) {
+    return "";
+  }
 
-async function cerrarSesion() {
+  return String(valor)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-  await supabase.auth.signOut();
+function renderizarRegistro(registros) {
 
- 
+  const lista = document.getElementById(
+    "registro-list"
+  );
+
+  if (!lista) return;
+
+  if (!registros.length) {
+
+    lista.innerHTML =
+      '<p class="empty-state">Todavía no hay vouchers registrados.</p>';
+
+    return;
+  }
+
+  lista.innerHTML = registros.map((voucher) => {
+
+    return `
+      <article class="registro-card">
+
+        <div>
+          <strong>
+            ${escapeHTML(voucher.numero_voucher || "Sin número")}
+          </strong>
+
+          <p>
+            ${escapeHTML(voucher.huesped || "Sin pasajero")}
+          </p>
+        </div>
+
+        <div>
+          <span>
+            ${escapeHTML(voucher.aerolinea || "Sin aerolínea")}
+          </span>
+
+          <span>
+            ${escapeHTML(voucher.vuelo || "Sin vuelo")}
+          </span>
+        </div>
+
+        <div>
+          <span>
+            Habitación:
+            ${escapeHTML(voucher.habitacion || "N/A")}
+          </span>
+
+          <span>
+            Servicio:
+            ${escapeHTML(voucher.servicio || "N/A")}
+          </span>
+        </div>
+
+        <div>
+          <strong>
+            ${escapeHTML(voucher.estado || "RECIBIDO")}
+          </strong>
+        </div>
+
+      </article>
+    `;
+
+  }).join("");
+}
+
+const searchInput =
+  document.getElementById("search-input");
+
+if (searchInput) {
+
+  searchInput.addEventListener(
+    "input",
+    async () => {
+
+      const termino =
+        searchInput.value
+          .trim()
+          .toLowerCase();
+
+      const { data, error } =
+        await supabaseClient
+          .from("vouchers")
+          .select("*")
+          .order("created_at", {
+            ascending: false
+          });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      if (!termino) {
+        renderizarRegistro(data || []);
+        return;
+      }
+
+      const filtrados =
+        (data || []).filter((voucher) => {
+
+          return Object.values(voucher)
+            .join(" ")
+            .toLowerCase()
+            .includes(termino);
+
+        });
+
+      renderizarRegistro(filtrados);
+    }
+  );
+}
+
+const btnExport =
+  document.getElementById("btn-export");
+
+if (btnExport) {
+
+  btnExport.addEventListener(
+    "click",
+    async () => {
+
+      try {
+
+        const { data, error } =
+          await supabaseClient
+            .from("vouchers")
+            .select("*")
+            .order("created_at", {
+              ascending: false
+            });
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data || !data.length) {
+          alert("No hay vouchers para exportar.");
+          return;
+        }
+
+        const hoja =
+          XLSX.utils.json_to_sheet(data);
+
+        const libro =
+          XLSX.utils.book_new();
+
+        XLSX.utils.book_append_sheet(
+          libro,
+          hoja,
+          "Vouchers"
+        );
+
+        XLSX.writeFile(
+          libro,
+          "LayOverOS_Vouchers.xlsx"
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        alert(
+          "No se pudo generar el archivo Excel."
+        );
+      }
+    }
+  );
+}
+
+cargarRegistro();
