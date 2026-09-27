@@ -117,7 +117,7 @@
               Número de voucher
               <input
                 type="text"
-                name="numero_voucher"
+                name="numero_voucher">
             </label>
 
 
@@ -125,7 +125,7 @@
               Aerolínea
               <input
                 type="text"
-                name="aerolinea"               
+                name="aerolinea">
             </label>
 
 
@@ -133,7 +133,7 @@
               Pasajero
               <input
                 type="text"
-                name="huesped"
+                name="huesped">
             </label>
 
 
@@ -141,7 +141,7 @@
               Vuelo
               <input
                 type="text"
-                name="vuelo"
+                name="vuelo">
             </label>
 
 
@@ -157,6 +157,7 @@
               Fecha de emisión
               <input
                 type="date"
+                name="fecha_emision">
             </label>
 
 
@@ -164,7 +165,7 @@
               Tipo de Habitacion
               <input
                 type="text"
-                name="habitacion"
+                name="habitacion">
             </label>
 
 
@@ -172,9 +173,10 @@
               Servicio
               <input
                 type="text"
-                name="servicio"
+                name="servicio">
             </label>
-              
+
+
             <label>
               Noches
               <input
@@ -192,11 +194,12 @@
                 min="1">
             </label>
 
+
             <label>
               Nivel de tarifa
               <input
                 type="text"
-                name="fare_level"            
+                name="fare_level">
             </label>
 
 
@@ -274,41 +277,3 @@
             placeholder="Buscar por voucher, pasajero, vuelo, aerolínea...">
 
           <button
-            id="btn-export"
-            class="btn btn-primary">
-            Exportar a Excel
-          </button>
-
-        </div>
-
-
-        <div
-          id="registro-list"
-          class="registro-list">
-
-          <p class="empty-state">
-            Cargando registros...
-          </p>
-
-        </div>
-
-      </section>
-
-    </main>
-
-  </div>
-
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js"></script>
-
-  <script src="app.js"></script>
-
-  <script src="app.js"></script>
-
-</body>
-
-</html>
