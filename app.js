@@ -7,13 +7,23 @@ const tabs = document.querySelectorAll(".tab-btn");
 const vistas = document.querySelectorAll(".view");
 
 
+// =====================================================
+// FUNCIÓN PRINCIPAL: EXTRAER DATOS DEL OCR
+// =====================================================
+
 function llenarCamposDesdeOCR(texto) {
 
   if (!formulario) return;
 
+
+  // -----------------------------------------------------
+  // Función para colocar información en un campo
+  // -----------------------------------------------------
+
   function ponerCampo(nombre, valor) {
 
-    const campo = formulario.elements.namedItem(nombre);
+    const campo =
+      formulario.elements.namedItem(nombre);
 
     if (campo && valor) {
       campo.value = valor.trim();
@@ -21,16 +31,11 @@ function llenarCamposDesdeOCR(texto) {
   }
 
 
+  // -----------------------------------------------------
+  // Convertir fechas como 18SEP26 a 2026-09-18
+  // -----------------------------------------------------
+
   function convertirFecha(fechaTexto) {
-
-    const match = fechaTexto
-      .toUpperCase()
-      .replace(/\s+/g, "")
-      .match(
-        /^(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})$/
-      );
-
-    if (!match) return "";
 
     const meses = {
       JAN: "01",
@@ -47,6 +52,24 @@ function llenarCamposDesdeOCR(texto) {
       DEC: "12"
     };
 
+
+    const limpio =
+      fechaTexto
+        .toUpperCase()
+        .replace(/\s+/g, "");
+
+
+    const match =
+      limpio.match(
+        /^(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})$/
+      );
+
+
+    if (!match) {
+      return "";
+    }
+
+
     return (
       "20" +
       match[3] +
@@ -58,31 +81,53 @@ function llenarCamposDesdeOCR(texto) {
   }
 
 
-  const lineas = texto
-    .replace(/\r/g, "")
-    .split("\n")
-    .map(linea => linea.trim())
-    .filter(Boolean);
+  // -----------------------------------------------------
+  // Limpiar texto OCR
+  // -----------------------------------------------------
+
+  const lineas =
+    texto
+      .replace(/\r/g, "")
+      .split("\n")
+      .map(linea => linea.trim())
+      .filter(Boolean);
 
 
-  const textoCompleto = lineas.join("\n");
+  console.log("LÍNEAS OCR:", lineas);
 
 
   // =====================================================
   // NÚMERO DE VOUCHER
   // =====================================================
 
-  const voucher = textoCompleto.match(
-    /VOUCHER\s*ID\s*[:\-]?\s*([0-9][0-9\s]{5,})/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (voucher) {
+    if (/VOUCHER\s*ID/i.test(lineas[i])) {
 
-    ponerCampo(
-      "numero_voucher",
-      voucher[1].replace(/\s/g, "")
-    );
+      let encontrado =
+        lineas[i].match(/\d{6,}/);
 
+
+      if (!encontrado && lineas[i + 1]) {
+
+        encontrado =
+          lineas[i + 1].match(/\d{6,}/);
+
+      }
+
+
+      if (encontrado) {
+
+        ponerCampo(
+          "numero_voucher",
+          encontrado[0]
+        );
+
+      }
+
+
+      break;
+    }
   }
 
 
@@ -90,29 +135,46 @@ function llenarCamposDesdeOCR(texto) {
   // HUÉSPED
   // =====================================================
 
-  const nombre = textoCompleto.match(
-    /(?:NOMBRE|NAME)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ][^\n]+)/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (nombre) {
-
-    let nombreLimpio = nombre[1]
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // Evitar que OCR capture otra etiqueta como nombre
     if (
-      nombreLimpio &&
-      !/^(FLIGHT|FECHA|DATE|ISSUED|EMITIDO|VOUCHER|SERVICE|SERVICIO)$/i.test(nombreLimpio)
+      /^(NOMBRE|NAME)\b/i.test(
+        lineas[i]
+      )
     ) {
 
-      ponerCampo(
-        "huesped",
-        nombreLimpio
-      );
+      let valor =
+        lineas[i]
+          .replace(
+            /^(NOMBRE|NAME)\s*[:\-]?\s*/i,
+            ""
+          )
+          .trim();
 
+
+      if (!valor && lineas[i + 1]) {
+
+        valor =
+          lineas[i + 1].trim();
+
+      }
+
+
+      if (
+        valor &&
+        !/^(FLIGHT|VUELO|DATE|FECHA|ISSUED|EMITIDO|SERVICE|SERVICIO)$/i.test(valor)
+      ) {
+
+        ponerCampo(
+          "huesped",
+          valor.replace(/\s+/g, " ")
+        );
+
+      }
+
+
+      break;
     }
-
   }
 
 
@@ -120,17 +182,59 @@ function llenarCamposDesdeOCR(texto) {
   // VUELO
   // =====================================================
 
-  const vuelo = textoCompleto.match(
-    /(?:VUELO|FLIGHT)\s*[:\-]?\s*(?:VUELO|FLIGHT)?\s*([A-Z]{2,3}\s*\d{1,5})/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (vuelo) {
+    if (
+      /^(VUELO|FLIGHT)\b/i.test(
+        lineas[i]
+      )
+    ) {
 
-    ponerCampo(
-      "vuelo",
-      vuelo[1].replace(/\s+/g, "").toUpperCase()
-    );
+      let valor =
+        lineas[i]
+          .replace(
+            /^(VUELO|FLIGHT)\s*[:\-]?\s*/i,
+            ""
+          )
+          .trim();
 
+
+      if (
+        !valor ||
+        /^FLIGHT$/i.test(valor) ||
+        /^VUELO$/i.test(valor)
+      ) {
+
+        if (lineas[i + 1]) {
+
+          valor =
+            lineas[i + 1].trim();
+
+        }
+
+      }
+
+
+      const encontrado =
+        valor.match(
+          /\b([A-Z]{2,3}\s*\d{1,5})\b/i
+        );
+
+
+      if (encontrado) {
+
+        ponerCampo(
+          "vuelo",
+          encontrado[1]
+            .replace(/\s+/g, "")
+            .toUpperCase()
+        );
+
+      }
+
+
+      break;
+    }
   }
 
 
@@ -138,25 +242,59 @@ function llenarCamposDesdeOCR(texto) {
   // FECHA DE VUELO
   // =====================================================
 
-  const fechaVuelo = textoCompleto.match(
-    /(?:FECHA\s*VUELO|FLIGHT\s*DATE)\s*[:\-]?\s*(\d{1,2}\s*[A-Z]{3}\s*\d{2})/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (fechaVuelo) {
+    if (
+      /FECHA\s*VUELO|FLIGHT\s*DATE/i.test(
+        lineas[i]
+      )
+    ) {
 
-    const fecha = convertirFecha(
-      fechaVuelo[1]
-    );
+      let valor =
+        lineas[i]
+          .replace(
+            /.*?(FECHA\s*VUELO|FLIGHT\s*DATE)\s*[:\-]?\s*/i,
+            ""
+          )
+          .trim();
 
-    if (fecha) {
 
-      ponerCampo(
-        "fecha_vuelo",
-        fecha
-      );
+      if (!valor && lineas[i + 1]) {
 
+        valor =
+          lineas[i + 1].trim();
+
+      }
+
+
+      const encontrado =
+        valor.match(
+          /\b\d{1,2}\s*[A-Z]{3}\s*\d{2}\b/i
+        );
+
+
+      if (encontrado) {
+
+        const fecha =
+          convertirFecha(
+            encontrado[0]
+          );
+
+
+        if (fecha) {
+
+          ponerCampo(
+            "fecha_vuelo",
+            fecha
+          );
+
+        }
+
+      }
+
+
+      break;
     }
-
   }
 
 
@@ -164,65 +302,98 @@ function llenarCamposDesdeOCR(texto) {
   // FECHA DE EMISIÓN
   // =====================================================
 
-  const fechaEmision = textoCompleto.match(
-    /(?:EMITIDO|ISSUED)\s*[:\-]?\s*(\d{1,2}\s*[A-Z]{3}\s*\d{2})/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (fechaEmision) {
+    if (
+      /^(EMITIDO|ISSUED)\b/i.test(
+        lineas[i]
+      )
+    ) {
 
-    const fecha = convertirFecha(
-      fechaEmision[1]
+      let valor =
+        lineas[i]
+          .replace(
+            /^(EMITIDO|ISSUED)\s*[:\-]?\s*/i,
+            ""
+          )
+          .trim();
+
+
+      if (!valor && lineas[i + 1]) {
+
+        valor =
+          lineas[i + 1].trim();
+
+      }
+
+
+      const encontrado =
+        valor.match(
+          /\b\d{1,2}\s*[A-Z]{3}\s*\d{2}\b/i
+        );
+
+
+      if (encontrado) {
+
+        const fecha =
+          convertirFecha(
+            encontrado[0]
+          );
+
+
+        if (fecha) {
+
+          ponerCampo(
+            "fecha_emision",
+            fecha
+          );
+
+        }
+
+      }
+
+
+      break;
+    }
+  }
+
+
+  // =====================================================
+  // DÍAS
+  // =====================================================
+
+  const dias =
+    texto.match(
+      /(\d+)\s*DAY\b/i
     );
 
-    if (fecha) {
 
-      ponerCampo(
-        "fecha_emision",
-        fecha
-      );
+  if (dias) {
 
-    }
+    ponerCampo(
+      "dias",
+      dias[1]
+    );
 
   }
 
 
   // =====================================================
-  // ESTADÍA
+  // NOCHES
   // =====================================================
 
-  const estancia = textoCompleto.match(
-    /(?:TIEMPO\s*DE\s*ESTADIA|LENGTH\s*OF\s*STAY)\s*[:\-]?\s*([^\n]+)/i
-  );
-
-  if (estancia) {
-
-    const dias = estancia[1].match(
-      /(\d+)\s*DAY/i
-    );
-
-    const noches = estancia[1].match(
-      /(\d+)\s*NIGHT/i
+  const noches =
+    texto.match(
+      /(\d+)\s*NIGHT\b/i
     );
 
 
-    if (dias) {
+  if (noches) {
 
-      ponerCampo(
-        "dias",
-        dias[1]
-      );
-
-    }
-
-
-    if (noches) {
-
-      ponerCampo(
-        "noches",
-        noches[1]
-      );
-
-    }
+    ponerCampo(
+      "noches",
+      noches[1]
+    );
 
   }
 
@@ -231,19 +402,43 @@ function llenarCamposDesdeOCR(texto) {
   // OPERADO POR
   // =====================================================
 
-  const operado = textoCompleto.match(
-    /(?:OPERADO\s*POR|OPERATED\s*BY)\s*[:\-]?\s*([^\n]+)/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (operado) {
+    if (
+      /OPERADO\s*POR|OPERATED\s*BY/i.test(
+        lineas[i]
+      )
+    ) {
 
-    ponerCampo(
-      "operado_por",
-      operado[1]
-        .replace(/\s+/g, " ")
-        .trim()
-    );
+      let valor =
+        lineas[i]
+          .replace(
+            /.*?(OPERADO\s*POR|OPERATED\s*BY)\s*[:\-]?\s*/i,
+            ""
+          )
+          .trim();
 
+
+      if (!valor && lineas[i + 1]) {
+
+        valor =
+          lineas[i + 1].trim();
+
+      }
+
+
+      if (valor) {
+
+        ponerCampo(
+          "operado_por",
+          valor
+        );
+
+      }
+
+
+      break;
+    }
   }
 
 
@@ -251,17 +446,49 @@ function llenarCamposDesdeOCR(texto) {
   // CABINA
   // =====================================================
 
-  const cabina = textoCompleto.match(
-    /(?:CABINA|CABIN)\s*[:\-]?\s*([A-Z])/i
-  );
+  for (let i = 0; i < lineas.length; i++) {
 
-  if (cabina) {
+    if (
+      /^(CABINA|CABIN)\b/i.test(
+        lineas[i]
+      )
+    ) {
 
-    ponerCampo(
-      "cabina",
-      cabina[1].toUpperCase()
-    );
+      let valor =
+        lineas[i]
+          .replace(
+            /^(CABINA|CABIN)\s*[:\-]?\s*/i,
+            ""
+          )
+          .trim();
 
+
+      if (!valor && lineas[i + 1]) {
+
+        valor =
+          lineas[i + 1].trim();
+
+      }
+
+
+      const encontrado =
+        valor.match(
+          /\b([A-Z])\b/i
+        );
+
+
+      if (encontrado) {
+
+        ponerCampo(
+          "cabina",
+          encontrado[1].toUpperCase()
+        );
+
+      }
+
+
+      break;
+    }
   }
 
 
@@ -270,6 +497,7 @@ function llenarCamposDesdeOCR(texto) {
   // =====================================================
 
   const aerolineas = [
+
     "AVIANCA",
     "LATAM",
     "COPA AIRLINES",
@@ -292,71 +520,77 @@ function llenarCamposDesdeOCR(texto) {
     "TURKISH AIRLINES",
     "QATAR AIRWAYS",
     "EMIRATES"
+
   ];
 
 
   for (const aerolinea of aerolineas) {
 
-    const patron = new RegExp(
-      "\\b" +
-      aerolinea.replace(/\s+/g, "\\s+") +
-      "\\b",
-      "i"
-    );
+    const patron =
+      new RegExp(
+        "\\b" +
+        aerolinea.replace(
+          /\s+/g,
+          "\\s+"
+        ) +
+        "\\b",
+        "i"
+      );
 
 
-    if (patron.test(textoCompleto)) {
+    if (patron.test(texto)) {
 
       ponerCampo(
         "aerolinea",
         aerolinea
       );
 
+
       break;
-
     }
-
   }
 
 
   // =====================================================
   // NIVEL DE TARIFA
   // =====================================================
-  // Solo se llena si aparece explícitamente.
-  // Ejemplo: INSIGNIA
-  // =====================================================
 
   const nivelesTarifa = [
+
     "INSIGNIA",
     "CLASSIC",
     "FLEX",
     "BUSINESS",
     "PREMIUM",
     "AV-LM1"
+
   ];
 
 
   for (const nivel of nivelesTarifa) {
 
-    const patron = new RegExp(
-      "\\b" +
-      nivel.replace("-", "\\-") +
-      "\\b",
-      "i"
-    );
+    const patron =
+      new RegExp(
+        "\\b" +
+        nivel.replace(
+          "-",
+          "\\-"
+        ) +
+        "\\b",
+        "i"
+      );
 
 
-    if (patron.test(textoCompleto)) {
+    if (patron.test(texto)) {
 
       ponerCampo(
         "fare_level",
         nivel
       );
 
+
       break;
-
     }
-
   }
 
 
@@ -376,31 +610,50 @@ if (tabs.length) {
 
   tabs.forEach((tab) => {
 
-    tab.addEventListener("click", () => {
+    tab.addEventListener(
+      "click",
+      () => {
 
-      tabs.forEach((item) => {
-        item.classList.remove("active");
-      });
+        tabs.forEach((item) => {
 
+          item.classList.remove(
+            "active"
+          );
 
-      vistas.forEach((vista) => {
-        vista.classList.remove("active");
-      });
-
-
-      tab.classList.add("active");
+        });
 
 
-      const vista = document.getElementById(
-        "view-" + tab.dataset.view
-      );
+        vistas.forEach((vista) => {
+
+          vista.classList.remove(
+            "active"
+          );
+
+        });
 
 
-      if (vista) {
-        vista.classList.add("active");
+        tab.classList.add(
+          "active"
+        );
+
+
+        const vista =
+          document.getElementById(
+            "view-" +
+            tab.dataset.view
+          );
+
+
+        if (vista) {
+
+          vista.classList.add(
+            "active"
+          );
+
+        }
+
       }
-
-    });
+    );
 
   });
 
@@ -409,7 +662,7 @@ if (tabs.length) {
 
 
 // =====================================================
-// OCR
+// CARGAR FOTO Y EJECUTAR OCR
 // =====================================================
 
 if (archivo) {
@@ -418,13 +671,20 @@ if (archivo) {
     "change",
     async function () {
 
-      const foto = this.files[0];
+      const foto =
+        this.files[0];
 
-      if (!foto) return;
+
+      if (!foto) {
+        return;
+      }
 
 
       imagen.src =
-        URL.createObjectURL(foto);
+        URL.createObjectURL(
+          foto
+        );
+
 
       imagen.hidden = false;
 
@@ -449,7 +709,6 @@ if (archivo) {
         }
 
         return;
-
       }
 
 
@@ -464,149 +723,5 @@ if (archivo) {
               logger: function (info) {
 
                 if (
-                  info.status === "recognizing text" &&
-                  estado
-                ) {
-
-                  const porcentaje =
-                    Math.round(
-                      info.progress * 100
-                    );
-
-
-                  estado.textContent =
-                    "Analizando voucher... " +
-                    porcentaje +
-                    "%";
-
-                }
-
-              }
-
-            }
-          );
-
-
-        const texto =
-          resultado.data.text.trim();
-
-
-        console.log("TEXTO OCR:");
-        console.log(texto);
-        alert(texto);
-
-
-        llenarCamposDesdeOCR(
-          texto
-        );
-
-
-        if (formulario) {
-
-          formulario.hidden = false;
-
-
-          const observaciones =
-            formulario.elements.namedItem(
-              "observaciones"
-            );
-
-
-          if (observaciones) {
-
-            observaciones.value =
-              texto;
-
-          }
-
-        }
-
-
-        if (estado) {
-
-          estado.textContent =
-            "Voucher analizado. Revisa la información.";
-
-        }
-
-
-      } catch (error) {
-
-        console.error(
-          "Error OCR:",
-          error
-        );
-
-
-        if (estado) {
-
-          estado.textContent =
-            "No se pudo analizar el voucher.";
-
-        }
-
-      }
-
-    }
-
-  );
-
-}
-
-
-
-// =====================================================
-// CANCELAR
-// =====================================================
-
-const cancelar =
-  document.getElementById(
-    "btn-cancel"
-  );
-
-
-if (cancelar) {
-
-  cancelar.addEventListener(
-    "click",
-    () => {
-
-      if (formulario) {
-
-        formulario.reset();
-
-        formulario.hidden = true;
-
-      }
-
-
-      if (imagen) {
-
-        imagen.hidden = true;
-
-        imagen.removeAttribute(
-          "src"
-        );
-
-      }
-
-
-      if (archivo) {
-
-        archivo.value = "";
-
-      }
-
-
-      if (estado) {
-
-        estado.hidden = true;
-
-        estado.textContent = "";
-
-      }
-
-    }
-  );
-
-}
+                  info.status ===
+                    "recognizing text
