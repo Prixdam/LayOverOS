@@ -491,13 +491,9 @@ if (archivo) {
           resultado.data.text.trim();
 
 
-        console.log(
-          "TEXTO OCR:"
-        );
-
-        console.log(
-          texto
-        );
+        console.log("TEXTO OCR:");
+        console.log(texto);
+        alert(texto);
 
 
         llenarCamposDesdeOCR(
