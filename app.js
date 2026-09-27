@@ -7,19 +7,13 @@ const tabs = document.querySelectorAll(".tab-btn");
 const vistas = document.querySelectorAll(".view");
 
 
-// =====================================================
-// FUNCIÓN PRINCIPAL: EXTRAER DATOS DEL OCR
-// =====================================================
-
 function llenarCamposDesdeOCR(texto) {
 
   if (!formulario) return;
 
-
   function ponerCampo(nombre, valor) {
 
-    const campo =
-      formulario.elements.namedItem(nombre);
+    const campo = formulario.elements.namedItem(nombre);
 
     if (campo && valor) {
       campo.value = valor.trim();
@@ -28,6 +22,15 @@ function llenarCamposDesdeOCR(texto) {
 
 
   function convertirFecha(fechaTexto) {
+
+    const match = fechaTexto
+      .toUpperCase()
+      .replace(/\s+/g, "")
+      .match(
+        /^(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})$/
+      );
+
+    if (!match) return "";
 
     const meses = {
       JAN: "01",
@@ -44,20 +47,6 @@ function llenarCamposDesdeOCR(texto) {
       DEC: "12"
     };
 
-    const limpio =
-      fechaTexto
-        .toUpperCase()
-        .replace(/\s+/g, "");
-
-    const match =
-      limpio.match(
-        /^(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})$/
-      );
-
-    if (!match) {
-      return "";
-    }
-
     return (
       "20" +
       match[3] +
@@ -69,46 +58,31 @@ function llenarCamposDesdeOCR(texto) {
   }
 
 
-  const lineas =
-    texto
-      .replace(/\r/g, "")
-      .split("\n")
-      .map(linea => linea.trim())
-      .filter(Boolean);
+  const lineas = texto
+    .replace(/\r/g, "")
+    .split("\n")
+    .map(linea => linea.trim())
+    .filter(Boolean);
 
 
-  console.log("LÍNEAS OCR:", lineas);
+  const textoCompleto = lineas.join("\n");
 
 
   // =====================================================
   // NÚMERO DE VOUCHER
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const voucher = textoCompleto.match(
+    /VOUCHER\s*ID\s*[:\-]?\s*([0-9][0-9\s]{5,})/i
+  );
 
-    if (/VOUCHER\s*ID/i.test(lineas[i])) {
+  if (voucher) {
 
-      let encontrado =
-        lineas[i].match(/\d{6,}/);
+    ponerCampo(
+      "numero_voucher",
+      voucher[1].replace(/\s/g, "")
+    );
 
-      if (!encontrado && lineas[i + 1]) {
-
-        encontrado =
-          lineas[i + 1].match(/\d{6,}/);
-
-      }
-
-      if (encontrado) {
-
-        ponerCampo(
-          "numero_voucher",
-          encontrado[0]
-        );
-
-      }
-
-      break;
-    }
   }
 
 
@@ -116,41 +90,29 @@ function llenarCamposDesdeOCR(texto) {
   // HUÉSPED
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const nombre = textoCompleto.match(
+    /(?:NOMBRE|NAME)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ][^\n]+)/i
+  );
 
+  if (nombre) {
+
+    let nombreLimpio = nombre[1]
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Evitar que OCR capture otra etiqueta como nombre
     if (
-      /^(NOMBRE|NAME)\b/i.test(
-        lineas[i]
-      )
+      nombreLimpio &&
+      !/^(FLIGHT|FECHA|DATE|ISSUED|EMITIDO|VOUCHER|SERVICE|SERVICIO)$/i.test(nombreLimpio)
     ) {
 
-      let valor =
-        lineas[i]
-          .replace(
-            /^(NOMBRE|NAME)\s*[:\-]?\s*/i,
-            ""
-          )
-          .trim();
+      ponerCampo(
+        "huesped",
+        nombreLimpio
+      );
 
-      if (!valor && lineas[i + 1]) {
-        valor =
-          lineas[i + 1].trim();
-      }
-
-      if (
-        valor &&
-        !/^(FLIGHT|VUELO|DATE|FECHA|ISSUED|EMITIDO|SERVICE|SERVICIO)$/i.test(valor)
-      ) {
-
-        ponerCampo(
-          "huesped",
-          valor.replace(/\s+/g, " ")
-        );
-
-      }
-
-      break;
     }
+
   }
 
 
@@ -158,53 +120,17 @@ function llenarCamposDesdeOCR(texto) {
   // VUELO
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const vuelo = textoCompleto.match(
+    /(?:VUELO|FLIGHT)\s*[:\-]?\s*(?:VUELO|FLIGHT)?\s*([A-Z]{2,3}\s*\d{1,5})/i
+  );
 
-    if (
-      /^(VUELO|FLIGHT)\b/i.test(
-        lineas[i]
-      )
-    ) {
+  if (vuelo) {
 
-      let valor =
-        lineas[i]
-          .replace(
-            /^(VUELO|FLIGHT)\s*[:\-]?\s*/i,
-            ""
-          )
-          .trim();
+    ponerCampo(
+      "vuelo",
+      vuelo[1].replace(/\s+/g, "").toUpperCase()
+    );
 
-      if (
-        !valor ||
-        /^FLIGHT$/i.test(valor) ||
-        /^VUELO$/i.test(valor)
-      ) {
-
-        if (lineas[i + 1]) {
-          valor =
-            lineas[i + 1].trim();
-        }
-
-      }
-
-      const encontrado =
-        valor.match(
-          /\b([A-Z]{2,3}\s*\d{1,5})\b/i
-        );
-
-      if (encontrado) {
-
-        ponerCampo(
-          "vuelo",
-          encontrado[1]
-            .replace(/\s+/g, "")
-            .toUpperCase()
-        );
-
-      }
-
-      break;
-    }
   }
 
 
@@ -212,52 +138,25 @@ function llenarCamposDesdeOCR(texto) {
   // FECHA DE VUELO
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const fechaVuelo = textoCompleto.match(
+    /(?:FECHA\s*VUELO|FLIGHT\s*DATE)\s*[:\-]?\s*(\d{1,2}\s*[A-Z]{3}\s*\d{2})/i
+  );
 
-    if (
-      /FECHA\s*VUELO|FLIGHT\s*DATE/i.test(
-        lineas[i]
-      )
-    ) {
+  if (fechaVuelo) {
 
-      let valor =
-        lineas[i]
-          .replace(
-            /.*?(FECHA\s*VUELO|FLIGHT\s*DATE)\s*[:\-]?\s*/i,
-            ""
-          )
-          .trim();
+    const fecha = convertirFecha(
+      fechaVuelo[1]
+    );
 
-      if (!valor && lineas[i + 1]) {
-        valor =
-          lineas[i + 1].trim();
-      }
+    if (fecha) {
 
-      const encontrado =
-        valor.match(
-          /\b\d{1,2}\s*[A-Z]{3}\s*\d{2}\b/i
-        );
+      ponerCampo(
+        "fecha_vuelo",
+        fecha
+      );
 
-      if (encontrado) {
-
-        const fecha =
-          convertirFecha(
-            encontrado[0]
-          );
-
-        if (fecha) {
-
-          ponerCampo(
-            "fecha_vuelo",
-            fecha
-          );
-
-        }
-
-      }
-
-      break;
     }
+
   }
 
 
@@ -265,89 +164,65 @@ function llenarCamposDesdeOCR(texto) {
   // FECHA DE EMISIÓN
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const fechaEmision = textoCompleto.match(
+    /(?:EMITIDO|ISSUED)\s*[:\-]?\s*(\d{1,2}\s*[A-Z]{3}\s*\d{2})/i
+  );
 
-    if (
-      /^(EMITIDO|ISSUED)\b/i.test(
-        lineas[i]
-      )
-    ) {
+  if (fechaEmision) {
 
-      let valor =
-        lineas[i]
-          .replace(
-            /^(EMITIDO|ISSUED)\s*[:\-]?\s*/i,
-            ""
-          )
-          .trim();
+    const fecha = convertirFecha(
+      fechaEmision[1]
+    );
 
-      if (!valor && lineas[i + 1]) {
-        valor =
-          lineas[i + 1].trim();
-      }
+    if (fecha) {
 
-      const encontrado =
-        valor.match(
-          /\b\d{1,2}\s*[A-Z]{3}\s*\d{2}\b/i
-        );
+      ponerCampo(
+        "fecha_emision",
+        fecha
+      );
 
-      if (encontrado) {
-
-        const fecha =
-          convertirFecha(
-            encontrado[0]
-          );
-
-        if (fecha) {
-
-          ponerCampo(
-            "fecha_emision",
-            fecha
-          );
-
-        }
-
-      }
-
-      break;
     }
-  }
-
-
-  // =====================================================
-  // DÍAS
-  // =====================================================
-
-  const dias =
-    texto.match(
-      /(\d+)\s*DAY\b/i
-    );
-
-  if (dias) {
-
-    ponerCampo(
-      "dias",
-      dias[1]
-    );
 
   }
 
 
   // =====================================================
-  // NOCHES
+  // ESTADÍA
   // =====================================================
 
-  const noches =
-    texto.match(
-      /(\d+)\s*NIGHT\b/i
+  const estancia = textoCompleto.match(
+    /(?:TIEMPO\s*DE\s*ESTADIA|LENGTH\s*OF\s*STAY)\s*[:\-]?\s*([^\n]+)/i
+  );
+
+  if (estancia) {
+
+    const dias = estancia[1].match(
+      /(\d+)\s*DAY/i
     );
 
-  if (noches) {
-
-    ponerCampo(
-      "noches",
-      noches[1]
+    const noches = estancia[1].match(
+      /(\d+)\s*NIGHT/i
     );
+
+
+    if (dias) {
+
+      ponerCampo(
+        "dias",
+        dias[1]
+      );
+
+    }
+
+
+    if (noches) {
+
+      ponerCampo(
+        "noches",
+        noches[1]
+      );
+
+    }
 
   }
 
@@ -356,38 +231,19 @@ function llenarCamposDesdeOCR(texto) {
   // OPERADO POR
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const operado = textoCompleto.match(
+    /(?:OPERADO\s*POR|OPERATED\s*BY)\s*[:\-]?\s*([^\n]+)/i
+  );
 
-    if (
-      /OPERADO\s*POR|OPERATED\s*BY/i.test(
-        lineas[i]
-      )
-    ) {
+  if (operado) {
 
-      let valor =
-        lineas[i]
-          .replace(
-            /.*?(OPERADO\s*POR|OPERATED\s*BY)\s*[:\-]?\s*/i,
-            ""
-          )
-          .trim();
+    ponerCampo(
+      "operado_por",
+      operado[1]
+        .replace(/\s+/g, " ")
+        .trim()
+    );
 
-      if (!valor && lineas[i + 1]) {
-        valor =
-          lineas[i + 1].trim();
-      }
-
-      if (valor) {
-
-        ponerCampo(
-          "operado_por",
-          valor
-        );
-
-      }
-
-      break;
-    }
   }
 
 
@@ -395,43 +251,17 @@ function llenarCamposDesdeOCR(texto) {
   // CABINA
   // =====================================================
 
-  for (let i = 0; i < lineas.length; i++) {
+  const cabina = textoCompleto.match(
+    /(?:CABINA|CABIN)\s*[:\-]?\s*([A-Z])/i
+  );
 
-    if (
-      /^(CABINA|CABIN)\b/i.test(
-        lineas[i]
-      )
-    ) {
+  if (cabina) {
 
-      let valor =
-        lineas[i]
-          .replace(
-            /^(CABINA|CABIN)\s*[:\-]?\s*/i,
-            ""
-          )
-          .trim();
+    ponerCampo(
+      "cabina",
+      cabina[1].toUpperCase()
+    );
 
-      if (!valor && lineas[i + 1]) {
-        valor =
-          lineas[i + 1].trim();
-      }
-
-      const encontrado =
-        valor.match(
-          /\b([A-Z])\b/i
-        );
-
-      if (encontrado) {
-
-        ponerCampo(
-          "cabina",
-          encontrado[1].toUpperCase()
-        );
-
-      }
-
-      break;
-    }
   }
 
 
@@ -464,20 +294,18 @@ function llenarCamposDesdeOCR(texto) {
     "EMIRATES"
   ];
 
+
   for (const aerolinea of aerolineas) {
 
-    const patron =
-      new RegExp(
-        "\\b" +
-        aerolinea.replace(
-          /\s+/g,
-          "\\s+"
-        ) +
-        "\\b",
-        "i"
-      );
+    const patron = new RegExp(
+      "\\b" +
+      aerolinea.replace(/\s+/g, "\\s+") +
+      "\\b",
+      "i"
+    );
 
-    if (patron.test(texto)) {
+
+    if (patron.test(textoCompleto)) {
 
       ponerCampo(
         "aerolinea",
@@ -485,12 +313,17 @@ function llenarCamposDesdeOCR(texto) {
       );
 
       break;
+
     }
+
   }
 
 
   // =====================================================
   // NIVEL DE TARIFA
+  // =====================================================
+  // Solo se llena si aparece explícitamente.
+  // Ejemplo: INSIGNIA
   // =====================================================
 
   const nivelesTarifa = [
@@ -502,20 +335,18 @@ function llenarCamposDesdeOCR(texto) {
     "AV-LM1"
   ];
 
+
   for (const nivel of nivelesTarifa) {
 
-    const patron =
-      new RegExp(
-        "\\b" +
-        nivel.replace(
-          "-",
-          "\\-"
-        ) +
-        "\\b",
-        "i"
-      );
+    const patron = new RegExp(
+      "\\b" +
+      nivel.replace("-", "\\-") +
+      "\\b",
+      "i"
+    );
 
-    if (patron.test(texto)) {
+
+    if (patron.test(textoCompleto)) {
 
       ponerCampo(
         "fare_level",
@@ -523,14 +354,20 @@ function llenarCamposDesdeOCR(texto) {
       );
 
       break;
+
     }
+
   }
 
 
   console.log(
     "Campos identificados automáticamente."
   );
+
 }
+
+
+
 // =====================================================
 // PESTAÑAS
 // =====================================================
@@ -539,47 +376,40 @@ if (tabs.length) {
 
   tabs.forEach((tab) => {
 
-    tab.addEventListener(
-      "click",
-      () => {
+    tab.addEventListener("click", () => {
 
-        tabs.forEach((item) => {
-          item.classList.remove("active");
-        });
+      tabs.forEach((item) => {
+        item.classList.remove("active");
+      });
 
-        vistas.forEach((vista) => {
-          vista.classList.remove("active");
-        });
 
-        tab.classList.add("active");
+      vistas.forEach((vista) => {
+        vista.classList.remove("active");
+      });
 
-        const vista =
-          document.getElementById(
-            "view-" + tab.dataset.view
-          );
 
-        if (vista) {
-          vista.classList.add("active");
-        }
+      tab.classList.add("active");
 
-        // Cuando abrimos Registro,
-        // cargamos los vouchers guardados.
-        if (
-          tab.dataset.view === "registro"
-        ) {
-          cargarRegistro();
-        }
 
+      const vista = document.getElementById(
+        "view-" + tab.dataset.view
+      );
+
+
+      if (vista) {
+        vista.classList.add("active");
       }
-    );
+
+    });
 
   });
 
 }
 
 
+
 // =====================================================
-// CARGAR FOTO Y EJECUTAR OCR
+// OCR
 // =====================================================
 
 if (archivo) {
@@ -588,19 +418,16 @@ if (archivo) {
     "change",
     async function () {
 
-      const foto =
-        this.files[0];
+      const foto = this.files[0];
 
-      if (!foto) {
-        return;
-      }
+      if (!foto) return;
+
 
       imagen.src =
-        URL.createObjectURL(
-          foto
-        );
+        URL.createObjectURL(foto);
 
       imagen.hidden = false;
+
 
       if (estado) {
 
@@ -611,14 +438,18 @@ if (archivo) {
 
       }
 
+
       if (!window.Tesseract) {
 
         if (estado) {
+
           estado.textContent =
             "No se pudo cargar el motor OCR.";
+
         }
 
         return;
+
       }
 
 
@@ -633,8 +464,7 @@ if (archivo) {
               logger: function (info) {
 
                 if (
-                  info.status ===
-                    "recognizing text" &&
+                  info.status === "recognizing text" &&
                   estado
                 ) {
 
@@ -642,6 +472,7 @@ if (archivo) {
                     Math.round(
                       info.progress * 100
                     );
+
 
                   estado.textContent =
                     "Analizando voucher... " +
@@ -664,13 +495,10 @@ if (archivo) {
           "TEXTO OCR:"
         );
 
-        console.log(texto);
+        console.log(
+          texto
+        );
 
-
-        // IMPORTANTE:
-        // Aquí NO mostramos alert().
-        // El texto pasa directamente
-        // al parser.
 
         llenarCamposDesdeOCR(
           texto
@@ -681,14 +509,18 @@ if (archivo) {
 
           formulario.hidden = false;
 
+
           const observaciones =
             formulario.elements.namedItem(
               "observaciones"
             );
 
+
           if (observaciones) {
+
             observaciones.value =
               texto;
+
           }
 
         }
@@ -709,6 +541,7 @@ if (archivo) {
           error
         );
 
+
         if (estado) {
 
           estado.textContent =
@@ -719,327 +552,11 @@ if (archivo) {
       }
 
     }
+
   );
 
 }
 
-
-// =====================================================
-// SUPABASE
-// =====================================================
-
-const supabaseClient =
-  window.supabaseClient ||
-  (
-    window.supabase &&
-    window.SUPABASE_URL &&
-    window.SUPABASE_ANON_KEY
-      ? window.supabase.createClient(
-          window.SUPABASE_URL,
-          window.SUPABASE_ANON_KEY
-        )
-      : null
-  );
-
-
-// =====================================================
-// VARIABLES DEL REGISTRO
-// =====================================================
-
-const registroList =
-  document.getElementById(
-    "registro-list"
-  );
-
-const buscador =
-  document.getElementById(
-    "search-input"
-  );
-
-const botonExportar =
-  document.getElementById(
-    "btn-export"
-  );
-
-let registros = [];
-
-
-// =====================================================
-// CARGAR REGISTROS DESDE SUPABASE
-// =====================================================
-
-async function cargarRegistro() {
-
-  if (!registroList) {
-    return;
-  }
-
-
-  if (!supabaseClient) {
-
-    registroList
-    // =====================================================
-// BUSCAR REGISTROS
-// =====================================================
-
-if (buscador) {
-
-  buscador.addEventListener(
-    "input",
-    function () {
-
-      const termino =
-        this.value
-          .trim()
-          .toLowerCase();
-
-
-      if (!termino) {
-
-        mostrarRegistros(
-          registros
-        );
-
-        return;
-      }
-
-
-      const filtrados =
-        registros.filter(
-          (voucher) => {
-
-            const texto = [
-
-              voucher.numero_voucher,
-              voucher.huesped,
-              voucher.vuelo,
-              voucher.aerolinea
-
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase();
-
-
-            return texto.includes(
-              termino
-            );
-
-          }
-        );
-
-
-      mostrarRegistros(
-        filtrados
-      );
-
-    }
-  );
-
-}
-
-
-// =====================================================
-// GUARDAR VOUCHER
-// =====================================================
-
-if (formulario) {
-
-  formulario.addEventListener(
-    "submit",
-    async function (event) {
-
-      event.preventDefault();
-
-
-      if (!supabaseClient) {
-
-        if (estado) {
-
-          estado.hidden = false;
-
-          estado.textContent =
-            "No se pudo conectar con Supabase.";
-
-        }
-
-        return;
-      }
-
-
-      const datos =
-        Object.fromEntries(
-          new FormData(
-            formulario
-          )
-        );
-
-
-      function convertirNumero(
-        valor
-      ) {
-
-        if (
-          valor === "" ||
-          valor === null ||
-          valor === undefined
-        ) {
-
-          return null;
-
-        }
-
-        return Number(valor);
-
-      }
-
-
-      const payload = {
-
-        numero_voucher:
-          datos.numero_voucher ||
-          null,
-
-        aerolinea:
-          datos.aerolinea ||
-          null,
-
-        huesped:
-          datos.huesped ||
-          null,
-
-        vuelo:
-          datos.vuelo ||
-          null,
-
-        fecha_vuelo:
-          datos.fecha_vuelo ||
-          null,
-
-        fecha_emision:
-          datos.fecha_emision ||
-          null,
-
-        habitacion:
-          datos.habitacion ||
-          null,
-
-        servicio:
-          datos.servicio ||
-          null,
-
-        dias:
-          convertirNumero(
-            datos.dias
-          ),
-
-        noches:
-          convertirNumero(
-            datos.noches
-          ),
-
-        pax:
-          convertirNumero(
-            datos.pax
-          ),
-
-        operado_por:
-          datos.operado_por ||
-          null,
-
-        cabina:
-          datos.cabina ||
-          null,
-
-        fare_level:
-          datos.fare_level ||
-          null,
-
-        estado:
-          datos.estado ||
-          "RECIBIDO",
-
-        observaciones:
-          datos.observaciones ||
-          null
-
-      };
-
-
-      if (estado) {
-
-        estado.hidden = false;
-
-        estado.textContent =
-          "Guardando voucher...";
-
-      }
-
-
-      const { error } =
-        await supabaseClient
-          .from("vouchers")
-          .insert([
-            payload
-          ]);
-
-
-      if (error) {
-
-        console.error(
-          "Error guardando voucher:",
-          error
-        );
-
-
-        if (estado) {
-
-          estado.textContent =
-            "No se pudo guardar el voucher.";
-
-        }
-
-        return;
-      }
-
-
-      if (estado) {
-
-        estado.textContent =
-          "Voucher guardado correctamente.";
-
-      }
-
-
-      formulario.reset();
-
-      formulario.hidden = true;
-
-
-      if (imagen) {
-
-        imagen.hidden = true;
-
-        imagen.removeAttribute(
-          "src"
-        );
-
-      }
-
-
-      if (archivo) {
-
-        archivo.value = "";
-
-      }
-
-
-      await cargarRegistro();
-
-    }
-  );
-
-}
 
 
 // =====================================================
@@ -1097,104 +614,3 @@ if (cancelar) {
   );
 
 }
-
-
-// =====================================================
-// EXPORTAR A EXCEL
-// =====================================================
-
-if (botonExportar) {
-
-  botonExportar.addEventListener(
-    "click",
-    () => {
-
-      if (!registros.length) {
-
-        alert(
-          "No hay registros para exportar."
-        );
-
-        return;
-
-      }
-
-
-      if (!window.XLSX) {
-
-        alert(
-          "No se pudo cargar el exportador de Excel."
-        );
-
-        return;
-
-      }
-
-
-      const datosExcel =
-        registros.map(
-          (voucher) => ({
-
-            "Número voucher":
-              voucher.numero_voucher || "",
-
-            "Aerolínea":
-              voucher.aerolinea || "",
-
-            "Pasajero":
-              voucher.huesped || "",
-
-            "Vuelo":
-              voucher.vuelo || "",
-
-            "Fecha vuelo":
-              voucher.fecha_vuelo || "",
-
-            "Fecha emisión":
-              voucher.fecha_emision || "",
-
-            "Habitación":
-              voucher.habitacion || "",
-
-            "Servicio":
-              voucher.servicio || "",
-
-            "Días":
-              voucher.dias ?? "",
-
-            "Noches":
-              voucher.noches ?? "",
-
-            "PAX":
-              voucher.pax ?? "",
-
-            "Operado por":
-              voucher.operado_por || "",
-
-            "Cabina":
-              voucher.cabina || "",
-
-            "Nivel tarifa":
-              voucher.fare_level || "",
-
-            "Estado":
-              voucher.estado || "",
-
-            "Observaciones":
-              voucher.observaciones || ""
-
-          })
-        );
-
-
-      const hoja =
-        XLSX.utils.json_to_sheet(
-          datosExcel
-        );
-
-
-      const libro =
-        XLSX.utils.book_new();
-    }
-
-     
