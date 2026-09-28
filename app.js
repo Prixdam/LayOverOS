@@ -921,3 +921,105 @@ if (pestanaRegistro) {
 }
 
 cargarRegistros();
+
+
+
+// =====================================================
+// CÁMARA WEB (PC)
+// =====================================================
+
+const botonWebcam = document.getElementById("btn-webcam");
+const cajaWebcam = document.getElementById("webcam-box");
+const videoWebcam = document.getElementById("webcam-video");
+const botonCapturar = document.getElementById("btn-webcam-capturar");
+const botonCerrarWebcam = document.getElementById("btn-webcam-cerrar");
+
+let flujoWebcam = null;
+
+
+function cerrarWebcam() {
+
+  if (flujoWebcam) {
+    flujoWebcam.getTracks().forEach((pista) => pista.stop());
+    flujoWebcam = null;
+  }
+
+  if (videoWebcam) videoWebcam.srcObject = null;
+  if (cajaWebcam) cajaWebcam.hidden = true;
+}
+
+
+if (botonWebcam) {
+
+  botonWebcam.addEventListener("click", async () => {
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("Este navegador no permite usar la cámara.");
+      return;
+    }
+
+    try {
+
+      flujoWebcam = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+
+      videoWebcam.srcObject = flujoWebcam;
+      cajaWebcam.hidden = false;
+
+    } catch (error) {
+
+      console.error("Error abriendo la cámara:", error);
+      alert(
+        "No se pudo abrir la cámara. Revisa que el navegador tenga permiso para usarla."
+      );
+
+    }
+  });
+}
+
+
+if (botonCapturar) {
+
+  botonCapturar.addEventListener("click", () => {
+
+    if (!videoWebcam || !videoWebcam.videoWidth) return;
+
+    const lienzo = document.createElement("canvas");
+    lienzo.width = videoWebcam.videoWidth;
+    lienzo.height = videoWebcam.videoHeight;
+    lienzo.getContext("2d").drawImage(videoWebcam, 0, 0);
+
+    lienzo.toBlob((blob) => {
+
+      if (!blob) return;
+
+      const foto = new File(
+        [blob],
+        "voucher-" + Date.now() + ".jpg",
+        { type: "image/jpeg" }
+      );
+
+      // Se entrega a la misma entrada de archivo: dispara el OCR
+      // y la foto queda lista para guardarse con el voucher.
+      const lote = new DataTransfer();
+      lote.items.add(foto);
+      archivo.files = lote.files;
+
+      cerrarWebcam();
+
+      archivo.dispatchEvent(new Event("change"));
+
+    }, "image/jpeg", 0.92);
+  });
+}
+
+
+if (botonCerrarWebcam) {
+  botonCerrarWebcam.addEventListener("click", cerrarWebcam);
+}
