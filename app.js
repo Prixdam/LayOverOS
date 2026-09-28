@@ -614,3 +614,250 @@ if (cancelar) {
   );
 
 }
+
+
+
+// =====================================================
+// SUPABASE (guardado y registro)
+// =====================================================
+
+const SUPABASE_URL = "https://hyosutjoajvmsqjjfacs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_P7KvAWyd6mORIFe9_IWi8A_T9M_1fAe";
+const HOTEL_ID = "principal";
+
+const db =
+  SUPABASE_URL.startsWith("https://") && window.supabase
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
+
+let registros = [];
+
+const listaRegistro = document.getElementById("registro-list");
+const buscador = document.getElementById("search-input");
+const botonExportar = document.getElementById("btn-export");
+
+
+function escapar(texto) {
+  return String(texto ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+
+function fechaLegible(iso) {
+  if (!iso) return "";
+  const partes = String(iso).split("-");
+  if (partes.length !== 3) return iso;
+  return partes[2] + "/" + partes[1] + "/" + partes[0];
+}
+
+
+function registrosFiltrados() {
+  const q = (buscador ? buscador.value : "").trim().toLowerCase();
+  if (!q) return registros;
+
+  return registros.filter((r) =>
+    [r.numero_voucher, r.huesped, r.vuelo, r.aerolinea]
+      .join(" ")
+      .toLowerCase()
+      .includes(q)
+  );
+}
+
+
+function pintarRegistros() {
+  if (!listaRegistro) return;
+
+  const filas = registrosFiltrados();
+
+  if (!filas.length) {
+    listaRegistro.innerHTML =
+      '<p class="empty-state">No hay vouchers para mostrar.</p>';
+    return;
+  }
+
+  listaRegistro.innerHTML = filas
+    .map(
+      (r) => `
+      <div class="registro-item" style="border:1px solid rgba(128,128,128,.35);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <strong>Voucher ${escapar(r.numero_voucher || "sin número")}</strong>
+        <span style="float:right;font-size:12px;">${escapar(r.estado)}</span>
+        <div>${escapar(r.huesped)}</div>
+        <div style="font-size:13px;opacity:.8;">
+          ${escapar(r.aerolinea)} ${escapar(r.vuelo)}
+          ${r.fecha_vuelo ? "· " + fechaLegible(r.fecha_vuelo) : ""}
+          ${r.noches ? "· " + escapar(r.noches) + " noches" : ""}
+          ${r.pax ? "· " + escapar(r.pax) + " pax" : ""}
+        </div>
+      </div>`
+    )
+    .join("");
+}
+
+
+async function cargarRegistros() {
+  if (!listaRegistro) return;
+
+  if (!db) {
+    listaRegistro.innerHTML =
+      '<p class="empty-state">Falta configurar la URL de Supabase en app.js.</p>';
+    return;
+  }
+
+  listaRegistro.innerHTML =
+    '<p class="empty-state">Cargando registros...</p>';
+
+  const { data, error } = await db
+    .from("vouchers")
+    .select("*")
+    .eq("hotel_id", HOTEL_ID)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error cargando registros:", error);
+    listaRegistro.innerHTML =
+      '<p class="empty-state">No se pudieron cargar los registros.</p>';
+    return;
+  }
+
+  registros = data || [];
+  pintarRegistros();
+}
+
+
+// ---- Guardar voucher ----
+
+if (formulario) {
+
+  formulario.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    if (!db) {
+      if (estado) {
+        estado.hidden = false;
+        estado.textContent = "Falta configurar la URL de Supabase en app.js.";
+      }
+      return;
+    }
+
+    const enteros = ["dias", "noches", "pax"];
+    const fila = { hotel_id: HOTEL_ID };
+
+    for (const [clave, valor] of new FormData(formulario).entries()) {
+      const limpio = typeof valor === "string" ? valor.trim() : valor;
+
+      if (limpio === "") fila[clave] = null;
+      else if (enteros.includes(clave)) fila[clave] = parseInt(limpio, 10);
+      else fila[clave] = limpio;
+    }
+
+    if (!fila.numero_voucher) {
+      if (estado) {
+        estado.hidden = false;
+        estado.textContent = "Escribe el número de voucher antes de guardar.";
+      }
+      return;
+    }
+
+    const boton = formulario.querySelector('button[type="submit"]');
+    if (boton) boton.disabled = true;
+
+    const { error } = await db.from("vouchers").insert(fila);
+
+    if (boton) boton.disabled = false;
+
+    if (error) {
+      console.error("Error guardando voucher:", error);
+      if (estado) {
+        estado.hidden = false;
+        estado.textContent = "No se pudo guardar el voucher.";
+      }
+      return;
+    }
+
+    formulario.reset();
+    formulario.hidden = true;
+
+    if (imagen) {
+      imagen.hidden = true;
+      imagen.removeAttribute("src");
+    }
+    if (archivo) archivo.value = "";
+
+    if (estado) {
+      estado.hidden = false;
+      estado.textContent = "Voucher guardado.";
+    }
+
+    cargarRegistros();
+  });
+}
+
+
+// ---- Búsqueda ----
+
+if (buscador) {
+  buscador.addEventListener("input", pintarRegistros);
+}
+
+
+// ---- Exportar a Excel ----
+
+if (botonExportar) {
+
+  botonExportar.addEventListener("click", () => {
+
+    const filas = registrosFiltrados();
+
+    if (!filas.length) {
+      alert("No hay registros para exportar.");
+      return;
+    }
+
+    if (!window.XLSX) {
+      alert("No se pudo cargar la librería de Excel.");
+      return;
+    }
+
+    const datos = filas.map((r) => ({
+      "Número de voucher": r.numero_voucher,
+      "Aerolínea": r.aerolinea,
+      "Pasajero": r.huesped,
+      "Vuelo": r.vuelo,
+      "Fecha del vuelo": r.fecha_vuelo,
+      "Fecha de emisión": r.fecha_emision,
+      "Tipo de habitación": r.habitacion,
+      "Servicio": r.servicio,
+      "Días": r.dias,
+      "Noches": r.noches,
+      "PAX": r.pax,
+      "Nivel de tarifa": r.fare_level,
+      "Operado por": r.operado_por,
+      "Cabina": r.cabina,
+      "Estado": r.estado,
+      "Observaciones": r.observaciones,
+      "Registrado": r.created_at
+    }));
+
+    const hoja = XLSX.utils.json_to_sheet(datos);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, "Vouchers");
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(libro, "vouchers_" + hoy + ".xlsx");
+  });
+}
+
+
+// ---- Cargar al abrir la pestaña Registro y al iniciar ----
+
+const pestanaRegistro = document.querySelector('.tab-btn[data-view="registro"]');
+
+if (pestanaRegistro) {
+  pestanaRegistro.addEventListener("click", cargarRegistros);
+}
+
+cargarRegistros();
