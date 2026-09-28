@@ -691,6 +691,14 @@ function pintarRegistros() {
           ${r.noches ? "· " + escapar(r.noches) + " noches" : ""}
           ${r.pax ? "· " + escapar(r.pax) + " pax" : ""}
         </div>
+        ${
+          r.imagen_url
+            ? `<a href="${escapar(r.imagen_url)}" target="_blank" rel="noopener">
+                 <img src="${escapar(r.imagen_url)}" alt="Foto del voucher" loading="lazy"
+                      style="width:100%;max-width:220px;border-radius:8px;margin-top:8px;display:block;">
+               </a>`
+            : ""
+        }
       </div>`
     )
     .join("");
@@ -724,6 +732,41 @@ async function cargarRegistros() {
 
   registros = data || [];
   pintarRegistros();
+}
+
+
+// ---- Foto del voucher (Supabase Storage) ----
+
+async function reducirFoto(archivoImg) {
+  try {
+    const bmp = await createImageBitmap(archivoImg);
+    const maximo = 1800;
+    const escala = Math.min(1, maximo / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * escala);
+    canvas.height = Math.round(bmp.height * escala);
+    canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((res) =>
+      canvas.toBlob(res, "image/jpeg", 0.85)
+    );
+    return blob || archivoImg;
+  } catch (err) {
+    return archivoImg;
+  }
+}
+
+
+async function subirFoto(archivoImg) {
+  const blob = await reducirFoto(archivoImg);
+  const ruta = HOTEL_ID + "/" + crypto.randomUUID() + ".jpg";
+
+  const { error } = await db.storage
+    .from("vouchers")
+    .upload(ruta, blob, { contentType: blob.type || "image/jpeg" });
+
+  if (error) throw error;
+
+  return db.storage.from("vouchers").getPublicUrl(ruta).data.publicUrl;
 }
 
 
@@ -765,6 +808,22 @@ if (formulario) {
     const boton = formulario.querySelector('button[type="submit"]');
     if (boton) boton.disabled = true;
 
+    const foto = archivo && archivo.files ? archivo.files[0] : null;
+    let avisoFoto = "";
+
+    if (foto) {
+      if (estado) {
+        estado.hidden = false;
+        estado.textContent = "Guardando voucher y foto...";
+      }
+      try {
+        fila.imagen_url = await subirFoto(foto);
+      } catch (err) {
+        console.error("Error subiendo foto:", err);
+        avisoFoto = " (la foto no se pudo subir)";
+      }
+    }
+
     const { error } = await db.from("vouchers").insert(fila);
 
     if (boton) boton.disabled = false;
@@ -789,7 +848,7 @@ if (formulario) {
 
     if (estado) {
       estado.hidden = false;
-      estado.textContent = "Voucher guardado.";
+      estado.textContent = "Voucher guardado." + avisoFoto;
     }
 
     cargarRegistros();
@@ -839,6 +898,7 @@ if (botonExportar) {
       "Cabina": r.cabina,
       "Estado": r.estado,
       "Observaciones": r.observaciones,
+      "Foto": r.imagen_url,
       "Registrado": r.created_at
     }));
 
