@@ -80,6 +80,49 @@
           </label>
 
 
+          <button
+            type="button"
+            id="btn-webcam"
+            class="btn btn-ghost"
+            style="margin-top:12px;">
+            💻 Usar cámara web
+          </button>
+
+
+          <div
+            id="webcam-box"
+            hidden
+            style="margin-top:12px;">
+
+            <video
+              id="webcam-video"
+              autoplay
+              playsinline
+              muted
+              style="width:100%;max-width:640px;border-radius:10px;">
+            </video>
+
+            <div style="margin-top:8px;display:flex;gap:8px;">
+
+              <button
+                type="button"
+                id="btn-webcam-capturar"
+                class="btn btn-primary">
+                Capturar
+              </button>
+
+              <button
+                type="button"
+                id="btn-webcam-cerrar"
+                class="btn btn-ghost">
+                Cerrar
+              </button>
+
+            </div>
+
+          </div>
+
+
           <img
             id="preview-img"
             class="preview-img"
